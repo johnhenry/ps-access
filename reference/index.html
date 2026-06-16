@@ -1,0 +1,2995 @@
+<!doctype html>
+<html style="scrollbar-gutter: stable both-edges;">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <title>PlayStation Access Controller Profile Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js" integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13" crossorigin="anonymous"></script>
+    <script src="code.js" type="module"></script>
+    </script>
+</head>
+
+<body>
+
+    <div class="container d-flex flex-column" style="max-width: 720px;">
+
+        <h1 class="mt-sm-5 mt-3">PlayStation Access Controller<br>Profile Editor</h1>
+
+        <div class="row my-4">
+            <div class="col">
+                <button id="open_device" type="button" class="btn btn-primary w-100">Connect to controller</button>
+            </div>
+            <div class="col">
+                <button id="load_from_device" type="button" class="btn btn-primary w-100">Load from controller</button>
+            </div>
+            <div class="col">
+                <button id="save_to_device" type="button" class="btn btn-primary w-100">Save to controller</button>
+            </div>
+        </div>
+
+        <div id="error" class="alert alert-danger d-none"></div>
+
+        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+            <button class="nav-link active" id="nav-info-tab" data-bs-toggle="tab" data-bs-target="#nav-info" type="button" role="tab">README</button>
+            <button class="nav-link" id="nav-profile1-tab" data-bs-toggle="tab" data-bs-target="#nav-profile1" type="button" role="tab">Profile 1</button>
+            <button class="nav-link" id="nav-profile2-tab" data-bs-toggle="tab" data-bs-target="#nav-profile2" type="button" role="tab">Profile 2</button>
+            <button class="nav-link" id="nav-profile3-tab" data-bs-toggle="tab" data-bs-target="#nav-profile3" type="button" role="tab">Profile 3</button>
+        </div>
+
+        <div class="tab-content flex-grow-1">
+
+            <div class="tab-pane active" id="nav-info" role="tabpanel" tabindex="0">
+
+                <div class="row mt-3">
+                    <p>This website lets you edit profiles (button mapping etc.) on a PlayStation Access controller without
+                        having to use a PS5. Ideally Sony would release an official tool for this, but they haven't so far.</p>
+                    <p>You will notice that when you press the "profile" button on your Access controller while it's connected
+                        to a PC, the profile LED indicators don't work. But the button still cycles through the profiles,
+                        you just have to guess which profile is currently active.
+                    </p>
+                    <p>If you edit the profiles on your Access controller using this website and then connect it to a PS5,
+                        the PS5 will overwrite the profiles with whatever profiles were configured on the console. If you want
+                        to use your Access controller with both a PS5 and a PC, edit the profiles on the PS5.
+                    </p>
+                    <p>Depending on what game or software you use your controller with, the buttons might not show up as expected
+                        and might require remapping in game.
+                        Please note that the same thing happens when you configure the controller using a PS5.
+                        It's not the controller's or this website's fault, it's just sad reality.
+                    </p>
+                    <p>Currently this website doesn't let you edit stick sensitivity and deadzone.</p>
+                    <p>Currently this website only works with the controller connected over USB, not Bluetooth. But you can of
+                        course edit the profiles over USB and then play over Bluetooth.
+                    </p>
+                    <p>If this breaks your controller, I'm not liable for anything.</p>
+                    <p>If you have any comments or questions, you can contact me at
+                        <a href="mailto:jfedor@jfedor.org">jfedor@jfedor.org</a>.
+                    </p>
+                </div>
+            </div>
+
+            <!-- auto generated start -->
+
+            <div class="tab-pane" id="nav-profile1" role="tabpanel" tabindex="0">
+
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Orientation</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_orientation_dropdown">
+                            <option value="3">stick on the left</option>
+                            <option value="2">stick above</option>
+                            <option value="1">stick on the right</option>
+                            <option value="0">stick below</option>
+                        </select>
+                    </div>
+                </div>
+    
+
+            <div class="row mt-3">
+                <div class="col-3 text-end">
+                    <label class="col-form-label">Stick</label>
+                </div>
+                <div class="col-auto">
+                    <select class="form-select" id="p1_e0_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                    </select>
+                </div>
+            </div>
+    
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Stick press in</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b10_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b10_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b10_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b10_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Center button</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b9_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b9_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b9_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b9_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 1</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b1_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b1_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b1_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b1_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 2</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b2_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b2_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b2_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b2_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 3</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b3_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b3_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b3_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b3_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 4</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b4_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b4_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b4_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b4_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 5</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b5_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b5_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b5_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b5_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 6</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b6_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b6_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b6_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b6_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 7</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b7_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b7_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b7_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b7_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 8</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b8_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_b8_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_b8_toggle_checkbox">
+                            <label class="form-check-label" for="p1_b8_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 1</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_e1_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p1_e1_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p1_e1_button_setting">
+                        <select class="form-select" id="p1_e1_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p1_e1_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_e1_toggle_checkbox">
+                            <label class="form-check-label" for="p1_e1_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p1_e1_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_e1_analog_checkbox">
+                            <label class="form-check-label" for="p1_e1_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 2</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_e2_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p1_e2_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p1_e2_button_setting">
+                        <select class="form-select" id="p1_e2_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p1_e2_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_e2_toggle_checkbox">
+                            <label class="form-check-label" for="p1_e2_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p1_e2_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_e2_analog_checkbox">
+                            <label class="form-check-label" for="p1_e2_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 3</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_e3_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p1_e3_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p1_e3_button_setting">
+                        <select class="form-select" id="p1_e3_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p1_e3_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_e3_toggle_checkbox">
+                            <label class="form-check-label" for="p1_e3_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p1_e3_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_e3_analog_checkbox">
+                            <label class="form-check-label" for="p1_e3_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 4</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p1_e4_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p1_e4_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p1_e4_button_setting">
+                        <select class="form-select" id="p1_e4_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p1_e4_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_e4_toggle_checkbox">
+                            <label class="form-check-label" for="p1_e4_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p1_e4_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p1_e4_analog_checkbox">
+                            <label class="form-check-label" for="p1_e4_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+            </div>
+
+
+            <div class="tab-pane" id="nav-profile2" role="tabpanel" tabindex="0">
+
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Orientation</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_orientation_dropdown">
+                            <option value="3">stick on the left</option>
+                            <option value="2">stick above</option>
+                            <option value="1">stick on the right</option>
+                            <option value="0">stick below</option>
+                        </select>
+                    </div>
+                </div>
+    
+
+            <div class="row mt-3">
+                <div class="col-3 text-end">
+                    <label class="col-form-label">Stick</label>
+                </div>
+                <div class="col-auto">
+                    <select class="form-select" id="p2_e0_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                    </select>
+                </div>
+            </div>
+    
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Stick press in</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b10_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b10_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b10_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b10_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Center button</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b9_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b9_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b9_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b9_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 1</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b1_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b1_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b1_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b1_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 2</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b2_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b2_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b2_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b2_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 3</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b3_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b3_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b3_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b3_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 4</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b4_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b4_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b4_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b4_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 5</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b5_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b5_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b5_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b5_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 6</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b6_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b6_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b6_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b6_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 7</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b7_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b7_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b7_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b7_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 8</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b8_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_b8_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_b8_toggle_checkbox">
+                            <label class="form-check-label" for="p2_b8_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 1</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_e1_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p2_e1_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p2_e1_button_setting">
+                        <select class="form-select" id="p2_e1_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p2_e1_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_e1_toggle_checkbox">
+                            <label class="form-check-label" for="p2_e1_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p2_e1_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_e1_analog_checkbox">
+                            <label class="form-check-label" for="p2_e1_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 2</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_e2_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p2_e2_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p2_e2_button_setting">
+                        <select class="form-select" id="p2_e2_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p2_e2_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_e2_toggle_checkbox">
+                            <label class="form-check-label" for="p2_e2_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p2_e2_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_e2_analog_checkbox">
+                            <label class="form-check-label" for="p2_e2_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 3</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_e3_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p2_e3_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p2_e3_button_setting">
+                        <select class="form-select" id="p2_e3_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p2_e3_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_e3_toggle_checkbox">
+                            <label class="form-check-label" for="p2_e3_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p2_e3_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_e3_analog_checkbox">
+                            <label class="form-check-label" for="p2_e3_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 4</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p2_e4_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p2_e4_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p2_e4_button_setting">
+                        <select class="form-select" id="p2_e4_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p2_e4_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_e4_toggle_checkbox">
+                            <label class="form-check-label" for="p2_e4_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p2_e4_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p2_e4_analog_checkbox">
+                            <label class="form-check-label" for="p2_e4_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+            </div>
+
+
+            <div class="tab-pane" id="nav-profile3" role="tabpanel" tabindex="0">
+
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Orientation</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_orientation_dropdown">
+                            <option value="3">stick on the left</option>
+                            <option value="2">stick above</option>
+                            <option value="1">stick on the right</option>
+                            <option value="0">stick below</option>
+                        </select>
+                    </div>
+                </div>
+    
+
+            <div class="row mt-3">
+                <div class="col-3 text-end">
+                    <label class="col-form-label">Stick</label>
+                </div>
+                <div class="col-auto">
+                    <select class="form-select" id="p3_e0_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                    </select>
+                </div>
+            </div>
+    
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Stick press in</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b10_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b10_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b10_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b10_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Center button</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b9_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b9_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b9_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b9_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 1</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b1_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b1_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b1_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b1_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 2</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b2_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b2_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b2_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b2_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 3</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b3_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b3_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b3_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b3_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 4</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b4_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b4_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b4_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b4_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 5</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b5_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b5_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b5_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b5_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 6</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b6_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b6_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b6_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b6_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 7</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b7_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b7_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b7_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b7_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Button 8</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b8_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_b8_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_b8_toggle_checkbox">
+                            <label class="form-check-label" for="p3_b8_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 1</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_e1_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p3_e1_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p3_e1_button_setting">
+                        <select class="form-select" id="p3_e1_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p3_e1_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_e1_toggle_checkbox">
+                            <label class="form-check-label" for="p3_e1_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p3_e1_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_e1_analog_checkbox">
+                            <label class="form-check-label" for="p3_e1_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 2</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_e2_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p3_e2_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p3_e2_button_setting">
+                        <select class="form-select" id="p3_e2_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p3_e2_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_e2_toggle_checkbox">
+                            <label class="form-check-label" for="p3_e2_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p3_e2_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_e2_analog_checkbox">
+                            <label class="form-check-label" for="p3_e2_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 3</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_e3_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p3_e3_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p3_e3_button_setting">
+                        <select class="form-select" id="p3_e3_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p3_e3_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_e3_toggle_checkbox">
+                            <label class="form-check-label" for="p3_e3_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p3_e3_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_e3_analog_checkbox">
+                            <label class="form-check-label" for="p3_e3_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+                <div class="row mt-3">
+                    <div class="col-3 text-end">
+                        <label class="col-form-label">Expansion port 4</label>
+                    </div>
+                    <div class="col-auto">
+                        <select class="form-select" id="p3_e4_mapping1_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="101">left stick</option>
+                            <option value="102">right stick</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto p3_e4_button_setting">
+                        <label class="col-form-label">+</label>
+                    </div>
+                    <div class="col-auto p3_e4_button_setting">
+                        <select class="form-select" id="p3_e4_mapping2_dropdown">
+                            <option value="0">nothing</option>
+                            <option value="1">circle</option>
+                            <option value="2">cross</option>
+                            <option value="3">triangle</option>
+                            <option value="4">square</option>
+                            <option value="5">up</option>
+                            <option value="6">down</option>
+                            <option value="7">left</option>
+                            <option value="8">right</option>
+                            <option value="9">L1</option>
+                            <option value="10">R1</option>
+                            <option value="11">L2</option>
+                            <option value="12">R2</option>
+                            <option value="13">L3</option>
+                            <option value="14">R3</option>
+                            <option value="15">options</option>
+                            <option value="16">create</option>
+                            <option value="17">PS</option>
+                            <option value="18">touchpad</option>
+                        </select>
+                    </div>
+                    <div class="col-auto col-form-label p3_e4_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_e4_toggle_checkbox">
+                            <label class="form-check-label" for="p3_e4_toggle_checkbox">
+                              toggle
+                            </label>
+                        </div>
+                    </div>
+                    <div class="col-auto col-form-label p3_e4_button_setting">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="p3_e4_analog_checkbox">
+                            <label class="form-check-label" for="p3_e4_analog_checkbox">
+                              analog
+                            </label>
+                        </div>
+                    </div>
+                </div>
+        
+
+            </div>
+
+            <!-- auto generated end -->
+
+        </div>
+
+        <div style="height: 100px"></div>
+    </div>
+
+</body>
+
+</html>
