@@ -118,6 +118,39 @@ Port 0 = built-in stick; ports 1–4 = the four 3.5mm expansion ports. Entry `p`
 A port’s stick assignment is encoded in the UI as `100 + code` (101 = left stick,
 102 = right stick) to share one dropdown with the button actions.
 
+## Input report — live button & stick state (report id `0x01`)
+
+The controller streams a DualSense-style **input report** (report id `1`, ~250 Hz, 64 bytes
+incl. report id / 63 bytes of data). Sticks are near the front, motion sensors + a timestamp
+fill the tail (those bytes are volatile at idle). Reverse-engineered with `web/hid-capture.html`
+(connect → idle baseline → press one button at a time, watch which bits flip).
+
+**Key finding:** the report exposes **raw physical button state — independent of the profile
+remapping.** Pressing a button lights a fixed physical bit even when that button is mapped to
+*Not assigned*. (The standard DualSense face/shoulder bits near bytes 7–8 instead carry the
+*mapped action*, so two buttons mapped to the same action are indistinguishable there.)
+
+Byte offsets below are in **`event.data` coordinates** (WebHID `inputreport`, which **excludes**
+the report id). For `node-hid`, whose buffer includes the id at `[0]`, add 1.
+
+| data byte | bits | meaning |
+|---|---|---|
+| 0–1 | — | left stick X / Y (≈`0x80` centered; byte 0 jitters) |
+| ~7–8 | — | standard mapped-action bits (reflect the *mapped* action, not the physical button) |
+| **15** | **0–7** | **the 8 perimeter buttons** — one bit each (physical) |
+| **16** | **0, 1** | **center button** and **stick-click** (physical) |
+
+So all 10 physical inputs are readable: `byte15` bits 0–7 (perimeter) + `byte16` bits 0–1
+(center, stick-click). The exact bit-to-on-screen-position mapping (which perimeter bit is which
+wedge, and which of `16.0`/`16.1` is center vs stick-click) is still being pinned down with a
+clean ordered capture; the grouping itself (perimeter vs the two stick-area buttons) is solid.
+
+This enables physical-button features regardless of mapping — e.g. navigating a UI with the
+controller (perimeter = back, center/stick-click = confirm) and lighting only the button
+actually pressed. Note: WebHID `inputreport` and the browser **Gamepad API** can't both read the
+device reliably at once, and the Gamepad API only sees mapped actions — so physical-button work
+must go through the raw input report.
+
 ## Implementation notes
 
 - `buildProfile()` starts from the previously-read raw bytes when available, so fields this
