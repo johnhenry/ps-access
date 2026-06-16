@@ -32,7 +32,6 @@ const BLADES = [
   { key: "p1", label: "Profile 1", kind: "profile", slot: 0 },
   { key: "p2", label: "Profile 2", kind: "profile", slot: 1 },
   { key: "p3", label: "Profile 3", kind: "profile", slot: 2 },
-  { key: "live", label: "Live", kind: "live", glyph: "◉" },
   { key: "save", label: "Save", kind: "save", glyph: "▣" },
 ];
 
@@ -62,15 +61,18 @@ function roundedWedge(cx, cy, ri, ro, a0, a1, cr) {
     + `L${f(P8)} A${cr},${cr} 0 0 1 ${f(P1)} Z`;
 }
 
-// focus = {type:'button'|'port'|'stick', index} ; live = Set of action names
-function profileSVG(profile, { focus = null, live = false } = {}) {
+// Build a neutral controller SVG. Live highlighting (button presses + stick motion) is applied
+// separately by updateLive() to every on-screen render, so all instances respond at once.
+// `focus` = {type:'button'|'port'|'stick'|'center', index} outlines one input (drill-in).
+function profileSVG(profile, { focus = null } = {}) {
   if (!profile) return "";
   const stick = profile.ports[0];
   const orient = stick.kind === "stick" ? stick.orientation : 3;
   const oDeg = ORIENT_ROT[orient] ?? 0, theta = rad(oDeg);
+  const pDeg = ORIENT_ROT[profile._physOrient ?? orient] ?? 0; // device's real stick side
   const R = (x, y) => { const [rx, ry] = rotV(x - M.CX, y - M.CY, theta); return [M.CX + rx, M.CY + ry]; };
-  const on = (code) => live && liveActions.has(ACTIONS[code]);
-  const cls = (active, foc) => `seg${active ? " on" : ""}${foc ? " foc" : ""}`;
+  const act = (code) => (code && ACTIONS[code]) ? ` data-act="${ACTIONS[code]}"` : "";
+  const seg = (f) => `seg${f ? " foc" : ""}`;
   let s = `<svg viewBox="0 0 440 440" xmlns="http://www.w3.org/2000/svg">`;
 
   // 8 wedge buttons (counter-clockwise, B5 opposite stick)
@@ -78,31 +80,41 @@ function profileSVG(profile, { focus = null, live = false } = {}) {
     const ca = rad(90 - i * 45 + oDeg);
     const d = roundedWedge(M.CX, M.CY, M.RI, M.RO, ca - rad(22.5 - M.GAP), ca + rad(22.5 - M.GAP), M.CORNER);
     const b = profile.buttons[i];
-    const foc = focus?.type === "button" && focus.index === i;
-    s += `<path d="${d}" class="${cls(on(b.map1), foc)}"/>`;
+    s += `<path d="${d}" class="${seg(focus?.type === "button" && focus.index === i)}"${act(b.map1)}/>`;
     s += `<text x="${(M.CX + M.RM * Math.cos(ca)).toFixed(1)}" y="${(M.CY + M.RM * Math.sin(ca) + 7).toFixed(1)}" class="lab">${symLabel(b.map1)}</text>`;
   }
   // center (B9)
-  s += `<circle cx="${M.CX}" cy="${M.CY}" r="${M.CTR}" class="${cls(on(profile.buttons[8].map1), focus?.type === "center")}"/>`;
+  s += `<circle cx="${M.CX}" cy="${M.CY}" r="${M.CTR}" class="${seg(focus?.type === "center")}"${act(profile.buttons[8].map1)}/>`;
   s += `<text x="${M.CX}" y="${M.CY + 8}" class="lab big">${symLabel(profile.buttons[8].map1)}</text>`;
   // ports
   for (let p = 1; p <= 4; p++) {
     const a = rad(-90 + (p - 2.5) * 24 + oDeg);
     const [x, y] = [M.CX + M.PORT_ARC * Math.cos(a), M.CY + M.PORT_ARC * Math.sin(a)];
     const port = profile.ports[p];
-    const foc = focus?.type === "port" && focus.index === p;
     const lbl = port.kind === "stick" ? "stk" : port.kind === "button" ? symLabel(port.map1) : `E${p}`;
-    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${M.PORT_R}" class="${cls(port.kind === "button" && on(port.map1), foc)}"/>`;
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${M.PORT_R}" class="${seg(focus?.type === "port" && focus.index === p)}"${port.kind === "button" ? act(port.map1) : ""}/>`;
     s += `<text x="${x.toFixed(1)}" y="${(y + 5).toFixed(1)}" class="lab sm">${lbl}</text>`;
   }
-  // stick
+  // stick — thumb carries the data updateLive() needs to animate it in this render's frame
   const [sx, sy] = R(M.CX, M.CY + M.STICK_DIST);
-  const tvx = live ? liveAxes[0] : 0, tvy = live ? liveAxes[1] : 0;
-  const foc = focus?.type === "stick";
-  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R}" class="stickwell${foc ? " foc" : ""}"/>`;
-  s += `<circle cx="${(sx + tvx * M.THUMB_R).toFixed(1)}" cy="${(sy + tvy * M.THUMB_R).toFixed(1)}" r="${M.STICK_R - 8}" class="thumb${on(profile.buttons[9].map1) ? " on" : ""}"/>`;
+  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R}" class="stickwell${focus?.type === "stick" ? " foc" : ""}"/>`;
+  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R - 8}" class="thumb" data-bx="${sx.toFixed(1)}" data-by="${sy.toFixed(1)}" data-odeg="${oDeg}" data-pdeg="${pDeg}"${act(profile.buttons[9].map1)}/>`;
   s += `</svg>`;
   return s;
+}
+
+// Apply current live gamepad state to ALL on-screen controller renders (any orientation).
+function updateLive() {
+  for (const el of document.querySelectorAll("#stage svg [data-act]")) {
+    el.classList.toggle("on", liveActions.has(el.getAttribute("data-act")));
+  }
+  for (const th of document.querySelectorAll("#stage svg .thumb")) {
+    const bx = +th.dataset.bx, by = +th.dataset.by;
+    const t = rad((+th.dataset.odeg) - (+th.dataset.pdeg)); // rotate relative to the device's real side
+    const [vx, vy] = rotV(liveAxes[0], liveAxes[1], t);
+    th.setAttribute("cx", (bx + vx * M.THUMB_R).toFixed(1));
+    th.setAttribute("cy", (by + vy * M.THUMB_R).toFixed(1));
+  }
 }
 
 // ============================ value spinners ============================
@@ -189,7 +201,6 @@ function bladeItems(blade) {
   if (blade.kind === "controllers") {
     return controllers.map((c, i) => ({ key: "ctrl" + i, label: c.name + (i === activeCtrl ? "  ✓" : ""), action: "selectCtrl", ctrl: i }));
   }
-  if (blade.kind === "live") return [{ key: "livehint", label: "Press buttons / move the stick", action: null }];
   if (blade.kind === "save") {
     return [
       { key: "savep", label: "Save this profile", action: "save" },
@@ -223,6 +234,7 @@ function render() {
   renderHero();
   renderCrumb();
   layout();
+  updateLive(); // re-apply live state to freshly built renders
 }
 
 function renderItems() {
@@ -256,14 +268,12 @@ function renderItems() {
 function renderHero() {
   const blade = BLADES[nav.col];
   const hero = $("#hero");
-  // The blade itself is the render; the hero appears (enlarged) only when you drill in,
-  // or on the Live blade to show input big.
-  const show = !!nav.drill || blade.kind === "live";
+  // The blade itself is the render; the enlarged hero appears only when you drill in.
   const profile = activeProfile();
-  if (!show || !profile) { hero.style.opacity = "0"; hero.innerHTML = ""; return; }
-  let focus = null;
-  if (nav.drill) { const rows = drillRows(profile, nav.drill.key); focus = rows[nav.drill.index]?.focus || null; }
-  hero.innerHTML = profileSVG(profile, { focus, live: blade.kind === "live" });
+  if (!nav.drill || !profile) { hero.style.opacity = "0"; hero.innerHTML = ""; return; }
+  const rows = drillRows(profile, nav.drill.key);
+  const focus = rows[nav.drill.index]?.focus || null;
+  hero.innerHTML = profileSVG(profile, { focus });
   hero.style.opacity = ".97";
 }
 
@@ -459,7 +469,7 @@ function pollGamepad() {
     pad.buttons.forEach((b, i) => { if (b.pressed && GP_ACTION[i]) next.add(GP_ACTION[i]); });
     liveActions = next;
     liveAxes = [pad.axes[0] || 0, pad.axes[1] || 0];
-    if (BLADES[nav.col].kind === "live") renderHero();
+    updateLive(); // all renders respond, every frame
 
     // navigation: dpad (12-15) + left stick, with debounce/repeat
     const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
