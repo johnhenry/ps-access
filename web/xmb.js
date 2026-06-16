@@ -28,12 +28,23 @@ let lastInputAt = 0;
 let renaming = false;
 
 const BLADES = [
-  { key: "controllers", label: "Controllers", kind: "controllers", glyph: "🎮" },
+  { key: "controllers", label: "Controllers", kind: "controllers" },
   { key: "p1", label: "Profile 1", kind: "profile", slot: 0 },
   { key: "p2", label: "Profile 2", kind: "profile", slot: 1 },
   { key: "p3", label: "Profile 3", kind: "profile", slot: 2 },
   { key: "save", label: "Save", kind: "save", glyph: "▣" },
 ];
+
+// Stylized, generic gamepad icon for the Controllers blade (line-art, theme-colored).
+const CONTROLLER_ICON = `<svg class="ctrl-icon" viewBox="0 0 120 92" xmlns="http://www.w3.org/2000/svg">
+  <path class="body" d="M45 28 H75 C90 28 95 35 99 47 L107 67 C111 80 98 86 91 75 L83 61 C80 56 77 54 72 54 H48 C43 54 40 56 37 61 L29 75 C22 86 9 80 13 67 L21 47 C25 35 30 28 45 28 Z"/>
+  <line class="ln" x1="31" y1="42" x2="45" y2="42"/>
+  <line class="ln" x1="38" y1="35" x2="38" y2="49"/>
+  <circle class="dot" cx="82" cy="35" r="3"/>
+  <circle class="dot" cx="91" cy="43" r="3"/>
+  <circle class="dot" cx="73" cy="43" r="3"/>
+  <circle class="dot" cx="82" cy="51" r="3"/>
+</svg>`;
 
 function activeProfile() {
   const b = BLADES[nav.col];
@@ -220,8 +231,12 @@ function render() {
     el.className = "blade" + (i === nav.col ? " focused" : "");
     const icon = document.createElement("div");
     icon.className = "icon";
-    if (b.kind === "profile") icon.innerHTML = profileSVG(controllers[activeCtrl]?.profiles[b.slot], { live: false });
-    else { const g = document.createElement("div"); g.className = "glyph"; g.textContent = b.glyph; icon.append(g); }
+    if (b.kind === "profile") icon.innerHTML = profileSVG(controllers[activeCtrl]?.profiles[b.slot]);
+    else {
+      const g = document.createElement("div"); g.className = "glyph";
+      if (b.kind === "controllers") g.innerHTML = CONTROLLER_ICON; else g.textContent = b.glyph;
+      icon.append(g);
+    }
     const lab = document.createElement("div");
     lab.className = "label";
     lab.textContent = b.label;
