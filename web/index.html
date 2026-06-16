@@ -109,6 +109,51 @@
   #unsupported { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; text-align: center;
     background: #05070c; padding: 40px; }
   #unsupported.show { display: grid; }
+
+  /* monitor blade icon (live signal) */
+  .mon-icon { width: 80%; height: 80%; }
+  .mon-icon .wave { fill: none; stroke: rgba(255,255,255,.5); stroke-width: 4.5; stroke-linejoin: round; stroke-linecap: round; }
+  .blade.focused .mon-icon .wave { stroke: var(--ink); }
+
+  /* full live monitor overlay */
+  #monitor { position: fixed; z-index: 6; inset: 56px 36px 24px; display: none; }
+  #monitor.show { display: block; }
+  #monitor .mon-grid { display: grid; grid-template-columns: minmax(340px,1.1fr) minmax(330px,1fr);
+    gap: 36px; align-items: center; height: 100%; }
+  #mon-render { display: grid; place-items: center; }
+  #mon-render svg { width: 100%; max-width: 420px; height: auto; overflow: visible; filter: drop-shadow(0 10px 40px rgba(0,0,0,.5)); }
+  #mon-render .seg { fill: rgba(255,255,255,.045); stroke: rgba(255,255,255,.2); stroke-width: 2; stroke-linejoin: round; transition: fill .07s, stroke .07s; }
+  #mon-render .seg.on { fill: var(--accent2); stroke: var(--accent); }
+  #mon-render .lab { fill: var(--ink); font: 300 22px sans-serif; text-anchor: middle; }
+  #mon-render .lab.big { font-size: 34px; } #mon-render .lab.sm { font-size: 15px; fill: var(--dim); }
+  #mon-render .stickwell { fill: rgba(255,255,255,.035); stroke: rgba(255,255,255,.2); stroke-width: 2; }
+  #mon-render .thumb { fill: rgba(255,255,255,.12); stroke: rgba(255,255,255,.22); stroke-width: 2; transition: fill .07s, cx .04s linear, cy .04s linear; }
+  #mon-render .thumb.on { fill: var(--accent2); stroke: var(--accent); }
+  #monitor .panel { background: var(--glass); border: 1px solid rgba(255,255,255,.08); border-radius: 18px;
+    backdrop-filter: blur(10px); padding: 20px 22px; display: flex; flex-direction: column; gap: 18px; max-height: 100%; overflow: auto; }
+  #monitor .panel h2 { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 10px; font-weight: 600; }
+  #monitor .chips { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; }
+  #monitor .chip { text-align: center; padding: 9px 4px; border-radius: 9px; font-size: 13px;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); color: var(--dim); transition: all .07s; }
+  #monitor .chip.on { background: var(--accent2); border-color: var(--accent); color: #fff; box-shadow: 0 0 14px rgba(111,168,255,.5); }
+  #monitor .chip small { display: block; font-size: 10px; opacity: .7; }
+  #monitor .stickrow { display: flex; align-items: center; gap: 18px; }
+  #monitor .crosshair { position: relative; width: 96px; height: 96px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.02); flex: 0 0 auto; }
+  #monitor .crosshair::before, #monitor .crosshair::after { content: ""; position: absolute; background: rgba(255,255,255,.08); }
+  #monitor .crosshair::before { left: 50%; top: 8%; bottom: 8%; width: 1px; }
+  #monitor .crosshair::after { top: 50%; left: 8%; right: 8%; height: 1px; }
+  #monitor .crosshair .dot { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--accent);
+    left: 50%; top: 50%; transform: translate(-50%,-50%); transition: left .04s linear, top .04s linear; box-shadow: 0 0 10px var(--accent); }
+  #monitor .axisvals { font: 13px ui-monospace, monospace; color: var(--dim); }
+  #monitor .axisvals b { color: var(--ink); font-weight: 400; }
+  #mon-raw { display: grid; grid-template-columns: repeat(16,1fr); gap: 3px; font: 11px ui-monospace, monospace; }
+  #mon-raw .b { text-align: center; padding: 3px 0; border-radius: 4px; background: rgba(255,255,255,.03); color: #6c7a89; }
+  #mon-raw .b.nz { color: var(--ink); background: rgba(255,255,255,.07); }
+  #mon-raw .b.btn { outline: 1.5px solid var(--accent); color: var(--accent); }
+  #mon-done { position: absolute; top: -2px; right: 0; font: inherit; font-size: 13px; color: var(--dim);
+    background: var(--glass); border: 1px solid rgba(255,255,255,.14); padding: 5px 12px; border-radius: 999px; cursor: pointer; z-index: 7; }
+  #mon-done:hover { color: var(--ink); border-color: var(--accent); }
 </style>
 </head>
 <body>
@@ -119,7 +164,6 @@
     <span class="device"><span class="dot" id="dev-dot"></span><span id="dev-name">No controller</span></span>
     <span id="crumb"></span>
     <span class="clock" id="clock"></span>
-    <a href="./monitor.html" id="monitor">◉ Monitor</a>
     <a href="./classic.html" id="exit">Classic ▸</a>
   </div>
 
@@ -127,6 +171,31 @@
     <div id="blades"></div>
     <div id="items"></div>
     <div id="hero"></div>
+  </div>
+
+  <div id="monitor">
+    <button id="mon-done">Done · Esc</button>
+    <div class="mon-grid">
+      <div id="mon-render"></div>
+      <div class="panel">
+        <div>
+          <h2>Buttons (physical)</h2>
+          <div class="chips" id="mon-chips"></div>
+        </div>
+        <div>
+          <h2>Stick</h2>
+          <div class="stickrow">
+            <div class="crosshair"><div class="dot" id="mon-stickdot"></div></div>
+            <div class="axisvals">X <b id="mon-ax">0.00</b><br>Y <b id="mon-ay">0.00</b></div>
+          </div>
+        </div>
+        <div>
+          <h2>Raw input report (id 0x01)</h2>
+          <div id="mon-raw"></div>
+          <div class="legend" style="font-size:11px;color:var(--dim);margin-top:6px">outlined = <b style="color:var(--accent)">byte 15</b> (perimeter) &amp; <b style="color:var(--accent)">byte 16</b> (center / stick-click)</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="footer">

@@ -51,14 +51,19 @@ Open **<http://localhost:3000/web/>** in Chrome/Edge.
 ### XMB view (default, `index.html`)
 
 A full-screen XrossMediaBar-style interface: a horizontal ribbon of blades
-(`Controllers · Profile 1 · 2 · 3 · Save`, each profile rendered as a live mini-controller),
-a vertical item list, and an enlarged "hero" render when you drill in. Edit button/stick/port
-mappings with horizontal value spinners, then save to the controller.
+(`Controllers · Profile 1 · 2 · 3 · Save · Monitor`, each profile rendered as a live
+mini-controller), a vertical item list, and an enlarged "hero" render when you drill in. Edit
+button/stick/port mappings with horizontal value spinners, then save to the controller.
 
 It's driven by the controller's **raw HID input report**, so it reads *physical* buttons
 regardless of remapping: tilt the **stick** to navigate, **center / stick-click = confirm**,
 **any perimeter button = back**, and pressing any physical button lights it up on every render.
 Keyboard works too (arrows / Enter / Backspace). A **✦ Classic** link opens the editor below.
+
+The **Monitor** blade opens a full-screen live input view (big controller render + physical-button
+chips + stick crosshair + the raw input report with the physical-button bytes highlighted). Here
+the controller is purely *observed* — navigation is suspended so every button and the stick can be
+tested freely; exit with **Esc** or **Done**. (Also available as a standalone page, `monitor.html`.)
 
 ### Classic editor (`classic.html`)
 
@@ -78,8 +83,10 @@ used to reverse-engineer the physical-button layout (see PROTOCOL.md).
 lib/access-protocol.mjs   shared, I/O-free protocol (parse/build/CRC/enums) — used by both tools
 lib/hid-node.mjs          node-hid transport
 cli.mjs                   command-line tool
-web/index.html + xmb.js   XMB-style configurator (default UI), via hid-web.mjs
+web/index.html + xmb.js   XMB-style configurator (default UI) + live Monitor blade, via hid-web.mjs
+web/controller-render.mjs shared controller SVG render + physical-input decode
 web/classic.html + app.js classic form/controller editor
+web/monitor.html + monitor.js  standalone XMB-styled live input monitor
 web/hid-capture.html      input-report diagnostics / RE tool
 captures/                 profile backups (created on backup/auto-backup)
 reference/                upstream code.js / crc.js / index.html (source of the protocol)

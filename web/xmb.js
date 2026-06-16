@@ -8,7 +8,7 @@ import {
   hidSupported, grantedControllers, requestControllers, ensureOpen,
   readProfileRaw, writeProfileRaw,
 } from "./hid-web.mjs";
-import { SYMBOLS, symLabel, nameLabel, M, profileSVG, decodePhysical } from "./controller-render.mjs";
+import { SYMBOLS, symLabel, nameLabel, M, profileSVG, decodePhysical, PHYS_NAMES } from "./controller-render.mjs";
 
 const $ = (s) => document.querySelector(s);
 
@@ -22,6 +22,7 @@ let phys = new Set();      // physically-pressed button indices (0-7 perimeter, 
 let liveAxes = [0, 0];     // physical stick, -1..1
 let lastInputAt = 0;
 let renaming = false;
+let monitorMode = false;   // full-screen live input monitor open
 
 const BLADES = [
   { key: "controllers", label: "Controllers", kind: "controllers" },
@@ -29,6 +30,7 @@ const BLADES = [
   { key: "p2", label: "Profile 2", kind: "profile", slot: 1 },
   { key: "p3", label: "Profile 3", kind: "profile", slot: 2 },
   { key: "save", label: "Save", kind: "save", glyph: "▣" },
+  { key: "monitor", label: "Monitor", kind: "monitor" },
 ];
 
 // Stylized, generic gamepad icon for the Controllers blade. Parts use the same `.seg` class
@@ -47,6 +49,12 @@ const SAVE_ICON = `<svg class="save-icon" viewBox="0 0 96 96" xmlns="http://www.
   <path class="seg" d="M28 20 H60 L76 36 V68 Q76 76 68 76 H28 Q20 76 20 68 V28 Q20 20 28 20 Z"/>
   <rect class="seg" x="38" y="20" width="18" height="16" rx="2"/>
   <rect class="seg" x="32" y="48" width="32" height="22" rx="3"/>
+</svg>`;
+
+// Stylized "live signal" waveform for the Monitor blade (a stroked line, not segments —
+// it reads instantly as activity/input).
+const MONITOR_ICON = `<svg class="mon-icon" viewBox="0 0 120 92" xmlns="http://www.w3.org/2000/svg">
+  <polyline class="wave" points="12,52 30,52 40,30 52,68 64,22 76,52 86,44 108,44"/>
 </svg>`;
 
 function activeProfile() {
@@ -160,6 +168,9 @@ function bladeItems(blade) {
       { key: "reload", label: "Reload from controller", action: "reload" },
     ];
   }
+  if (blade.kind === "monitor") {
+    return [{ key: "openmon", label: "Open live monitor", action: "monitor" }];
+  }
   return [];
 }
 
@@ -177,6 +188,7 @@ function render() {
       const g = document.createElement("div"); g.className = "glyph";
       if (b.kind === "controllers") g.innerHTML = CONTROLLER_ICON;
       else if (b.kind === "save") g.innerHTML = SAVE_ICON;
+      else if (b.kind === "monitor") g.innerHTML = MONITOR_ICON;
       else g.textContent = b.glyph;
       icon.append(g);
     }
@@ -277,6 +289,7 @@ function activate() {
     case "save": saveProfileFor(BLADES[nav.col].kind === "profile" ? BLADES[nav.col].slot : 0); break;
     case "saveAll": saveAll(); break;
     case "reload": reloadFromDevice(); break;
+    case "monitor": enterMonitor(); break;
   }
 }
 
@@ -371,6 +384,57 @@ async function reloadFromDevice() {
   toast("Reloaded from controller", 2000);
 }
 
+// ============================ live input monitor ============================
+// Full-screen overlay. The controller is purely observed here (navigation is suspended), so
+// every physical button and the stick can be tested freely; exit with Esc or the Done button.
+function buildMonChips() {
+  $("#mon-chips").innerHTML = PHYS_NAMES.map((n, i) =>
+    `<div class="chip" data-i="${i}">${i < 8 ? n : n.split("-")[0]}<small>${i < 8 ? "button" : (i === 8 ? "center" : "L3")}</small></div>`).join("");
+}
+function buildMonRaw() {
+  let h = "";
+  for (let i = 0; i < 63; i++) h += `<div class="b${i === 15 || i === 16 ? " btn" : ""}" data-i="${i}">00</div>`;
+  $("#mon-raw").innerHTML = h;
+}
+function enterMonitor() {
+  if (!controllers[activeCtrl]) { toast("Connect a controller first"); return; }
+  monitorMode = true;
+  $("#mon-render").innerHTML = profileSVG(controllers[activeCtrl].profiles[0]);
+  if (!$("#mon-chips").children.length) buildMonChips();
+  if (!$("#mon-raw").children.length) buildMonRaw();
+  $("#monitor").classList.add("show");
+  $("#stage").style.display = "none";
+  $(".footer").style.display = "none"; // its nav hints don't apply while observing
+}
+function exitMonitor() {
+  if (!monitorMode) return;
+  monitorMode = false;
+  $("#monitor").classList.remove("show");
+  $("#stage").style.display = "";
+  $(".footer").style.display = "";
+  blip(330);
+  render();
+}
+function updateMonitor(buttons, axes, d) {
+  for (const el of document.querySelectorAll("#mon-render svg [data-btn]"))
+    el.classList.toggle("on", buttons.has(+el.getAttribute("data-btn")));
+  const thumb = $("#mon-render svg .thumb");
+  if (thumb) {
+    thumb.setAttribute("cx", (+thumb.dataset.bx + axes[0] * M.THUMB_R).toFixed(1));
+    thumb.setAttribute("cy", (+thumb.dataset.by + axes[1] * M.THUMB_R).toFixed(1));
+  }
+  for (const c of $("#mon-chips").children) c.classList.toggle("on", buttons.has(+c.dataset.i));
+  $("#mon-stickdot").style.left = (50 + axes[0] * 38) + "%";
+  $("#mon-stickdot").style.top = (50 + axes[1] * 38) + "%";
+  $("#mon-ax").textContent = axes[0].toFixed(2);
+  $("#mon-ay").textContent = axes[1].toFixed(2);
+  const cells = $("#mon-raw").children;
+  for (let i = 0; i < d.length && i < cells.length; i++) {
+    cells[i].textContent = d[i].toString(16).padStart(2, "0");
+    cells[i].classList.toggle("nz", d[i] !== 0);
+  }
+}
+
 // ============================ input ============================
 function move(dx, dy) {
   if (renaming) return;
@@ -402,6 +466,7 @@ function back() {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 window.addEventListener("keydown", (e) => {
+  if (monitorMode) { if (e.key === "Escape" || e.key === "Backspace") { exitMonitor(); e.preventDefault(); } return; }
   if (renaming) return;
   const k = e.key;
   if (k === "ArrowLeft") { move(-1, 0); e.preventDefault(); }
@@ -425,6 +490,7 @@ function onInputReport(e) {
   const { buttons, axes } = decodePhysical(d);
   liveAxes = axes;
   phys = buttons;
+  if (monitorMode) { updateMonitor(buttons, axes, d); setGpStatus(true); return; }
   handlePhysInput(buttons, axes);
   updateLive();
   setGpStatus(true);
@@ -528,6 +594,7 @@ function init() {
   if (navigator.hid) {
     navigator.hid.addEventListener("disconnect", () => { /* keep simple: status refresh */ updateDeviceStatus(); });
   }
+  $("#mon-done").onclick = exitMonitor;
   render();
   load();
 }
