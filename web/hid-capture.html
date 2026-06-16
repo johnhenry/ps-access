@@ -76,19 +76,25 @@ function startBaseline() {
   }, 1600);
 }
 
+// Physical-button bytes (found via RE): byte 15 = the 8 perimeter buttons, byte 16 = center + stick-click.
+const BTN_BYTES = [15, 16];
 function onReport(e) {
   const b = new Uint8Array(e.data.buffer.slice(e.data.byteOffset, e.data.byteOffset + e.data.byteLength));
   if (phase === "baselining") { idle.push([...b]); return; }
   if (phase !== "watch") return;
-  // changed bits vs baseline, ignoring volatile bytes
-  const changed = [];
+  // grid shows all non-volatile changes; the press LOG keys only on the button bytes (noise-free)
+  const changedAll = [], changedBtn = [];
   for (let i = 0; i < b.length; i++) {
     if (volatile.has(i)) continue;
     const diff = (b[i] ^ baseline[i]) & 0xff;
-    if (diff) for (let bit = 0; bit < 8; bit++) if (diff & (1 << bit)) changed.push(`${i}.${bit}`);
+    if (!diff) continue;
+    for (let bit = 0; bit < 8; bit++) if (diff & (1 << bit)) {
+      changedAll.push(`${i}.${bit}`);
+      if (BTN_BYTES.includes(i)) changedBtn.push(`${i}.${bit}`);
+    }
   }
-  renderGrid(b, changed);
-  const key = changed.slice().sort().join(",");
+  renderGrid(b, changedAll);
+  const key = changedBtn.slice().sort().join(",");
   if (key && key !== lastKey) {
     log.push({ key, hex: [...b].map(x => x.toString(16).padStart(2, "0")).join(" ") });
     renderLog();

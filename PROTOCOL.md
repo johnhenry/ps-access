@@ -140,10 +140,10 @@ the report id). For `node-hid`, whose buffer includes the id at `[0]`, add 1.
 | **15** | **0–7** | **the 8 perimeter buttons** — one bit each (physical) |
 | **16** | **0, 1** | **center button** and **stick-click** (physical) |
 
-So all 10 physical inputs are readable: `byte15` bits 0–7 (perimeter) + `byte16` bits 0–1
-(center, stick-click). The exact bit-to-on-screen-position mapping (which perimeter bit is which
-wedge, and which of `16.0`/`16.1` is center vs stick-click) is still being pinned down with a
-clean ordered capture; the grouping itself (perimeter vs the two stick-area buttons) is solid.
+Pinned via an ordered capture: **perimeter button _n_ (1–8) → `byte 15` bit _(n−1)_**
+(bit 0 = button 1 … bit 7 = button 8); **`byte 16` bit 0 = center button**; **`byte 16` bit 1 =
+stick-click**. So all 10 physical inputs are readable directly from `byte 15` (bits 0–7) and
+`byte 16` (bits 0–1).
 
 This enables physical-button features regardless of mapping — e.g. navigating a UI with the
 controller (perimeter = back, center/stick-click = confirm) and lighting only the button

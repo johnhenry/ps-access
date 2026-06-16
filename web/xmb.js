@@ -22,9 +22,9 @@ let activeCtrl = 0;
 // nav: col = blade index, row = vertical item index, drill = { key, index } | null
 const nav = { col: 1, row: 0, drill: null };
 let soundOn = false;
-let liveActions = new Set();
-let liveAxes = [0, 0];
-let gamepadDetected = false;
+let phys = new Set();      // physically-pressed button indices (0-7 perimeter, 8 center, 9 stick-click)
+let liveAxes = [0, 0];     // physical stick, -1..1
+let lastInputAt = 0;
 let renaming = false;
 
 const BLADES = [
@@ -70,8 +70,8 @@ function profileSVG(profile, { focus = null } = {}) {
   const orient = stick.kind === "stick" ? stick.orientation : 3;
   const oDeg = ORIENT_ROT[orient] ?? 0, theta = rad(oDeg);
   const R = (x, y) => { const [rx, ry] = rotV(x - M.CX, y - M.CY, theta); return [M.CX + rx, M.CY + ry]; };
-  const act = (code) => (code && ACTIONS[code]) ? ` data-act="${ACTIONS[code]}"` : "";
   const seg = (f) => `seg${f ? " foc" : ""}`;
+  // data-btn = physical button index (0-7 perimeter, 8 center, 9 stick-click) for live highlight
   let s = `<svg viewBox="0 0 440 440" xmlns="http://www.w3.org/2000/svg">`;
 
   // 8 wedge buttons (counter-clockwise, B5 opposite stick)
@@ -79,34 +79,34 @@ function profileSVG(profile, { focus = null } = {}) {
     const ca = rad(90 - i * 45 + oDeg);
     const d = roundedWedge(M.CX, M.CY, M.RI, M.RO, ca - rad(22.5 - M.GAP), ca + rad(22.5 - M.GAP), M.CORNER);
     const b = profile.buttons[i];
-    s += `<path d="${d}" class="${seg(focus?.type === "button" && focus.index === i)}"${act(b.map1)}/>`;
+    s += `<path d="${d}" class="${seg(focus?.type === "button" && focus.index === i)}" data-btn="${i}"/>`;
     s += `<text x="${(M.CX + M.RM * Math.cos(ca)).toFixed(1)}" y="${(M.CY + M.RM * Math.sin(ca) + 7).toFixed(1)}" class="lab">${symLabel(b.map1)}</text>`;
   }
   // center (B9)
-  s += `<circle cx="${M.CX}" cy="${M.CY}" r="${M.CTR}" class="${seg(focus?.type === "button" && focus.index === 8)}"${act(profile.buttons[8].map1)}/>`;
+  s += `<circle cx="${M.CX}" cy="${M.CY}" r="${M.CTR}" class="${seg(focus?.type === "button" && focus.index === 8)}" data-btn="8"/>`;
   s += `<text x="${M.CX}" y="${M.CY + 8}" class="lab big">${symLabel(profile.buttons[8].map1)}</text>`;
-  // ports
+  // ports (no live highlight — physical port state not in the input report)
   for (let p = 1; p <= 4; p++) {
     const a = rad(-90 + (p - 2.5) * 24 + oDeg);
     const [x, y] = [M.CX + M.PORT_ARC * Math.cos(a), M.CY + M.PORT_ARC * Math.sin(a)];
     const port = profile.ports[p];
     const lbl = port.kind === "stick" ? "stk" : port.kind === "button" ? symLabel(port.map1) : `E${p}`;
-    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${M.PORT_R}" class="${seg(focus?.type === "port" && focus.index === p)}"${port.kind === "button" ? act(port.map1) : ""}/>`;
+    s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${M.PORT_R}" class="${seg(focus?.type === "port" && focus.index === p)}"/>`;
     s += `<text x="${x.toFixed(1)}" y="${(y + 5).toFixed(1)}" class="lab sm">${lbl}</text>`;
   }
   // stick — B10 (stick click) highlights the well/thumb; thumb carries its rest position for live
   const [sx, sy] = R(M.CX, M.CY + M.STICK_DIST);
   const stickFoc = focus?.type === "stick" || (focus?.type === "button" && focus.index === 9);
   s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R}" class="stickwell${stickFoc ? " foc" : ""}"/>`;
-  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R - 8}" class="thumb${stickFoc ? " foc" : ""}" data-bx="${sx.toFixed(1)}" data-by="${sy.toFixed(1)}"${act(profile.buttons[9].map1)}/>`;
+  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R - 8}" class="thumb${stickFoc ? " foc" : ""}" data-bx="${sx.toFixed(1)}" data-by="${sy.toFixed(1)}" data-btn="9"/>`;
   s += `</svg>`;
   return s;
 }
 
-// Apply current live gamepad state to ALL on-screen controller renders (any orientation).
+// Apply current physical button state to ALL on-screen controller renders (any orientation).
 function updateLive() {
-  for (const el of document.querySelectorAll("#stage svg [data-act]")) {
-    el.classList.toggle("on", liveActions.has(el.getAttribute("data-act")));
+  for (const el of document.querySelectorAll("#stage svg [data-btn]")) {
+    el.classList.toggle("on", phys.has(+el.getAttribute("data-btn")));
   }
   for (const th of document.querySelectorAll("#stage svg .thumb")) {
     // raw axes — the live thumb always reflects the physical stick, regardless of the
@@ -363,6 +363,7 @@ async function addDevices(devices) {
   for (const device of devices) {
     if (controllers.some((c) => c.device === device)) continue;
     await ensureOpen(device);
+    device.addEventListener("inputreport", onInputReport); // physical buttons + stick, live
     const profiles = [];
     for (let s = 1; s <= PROFILE_COUNT; s++) {
       const p = parseProfile(await readProfileRaw(device, s));
@@ -454,47 +455,54 @@ window.addEventListener("keydown", (e) => {
   else if (k === "m" || k === "M") { soundOn = !soundOn; toast("Sound " + (soundOn ? "on" : "off"), 1200); }
 });
 
-// ---- gamepad polling (navigation + live highlight) ----
-const gpPrev = {};
-let gpRepeat = 0;
-function pollGamepad() {
-  const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
-  const pad = pads.find((g) => /0e5f|access/i.test(g.id)) || pads.find((g) => g.mapping === "standard");
-  gamepadDetected = !!pad;
-  const gs = $("#gp-status");
-  if (gs) { gs.textContent = pad ? "controller: connected" : "controller: not detected"; gs.classList.toggle("on", !!pad); }
-  if (pad) {
-    // live highlight set (by action name) + axes
-    const next = new Set();
-    pad.buttons.forEach((b, i) => { if (b.pressed && GP_ACTION[i]) next.add(GP_ACTION[i]); });
-    liveActions = next;
-    liveAxes = [pad.axes[0] || 0, pad.axes[1] || 0];
-    updateLive(); // all renders respond, every frame
-
-    // navigation: dpad (12-15) + left stick, with debounce/repeat
-    const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0;
-    const left = pad.buttons[14]?.pressed || ax < -0.5;
-    const right = pad.buttons[15]?.pressed || ax > 0.5;
-    const up = pad.buttons[12]?.pressed || ay < -0.5;
-    const down = pad.buttons[13]?.pressed || ay > 0.5;
-    const sel = pad.buttons[0]?.pressed; // cross
-    const bk = pad.buttons[1]?.pressed;   // circle
-    gpRepeat = gpRepeat > 0 ? gpRepeat - 1 : 0;
-    const edge = (name, val) => { const was = gpPrev[name]; gpPrev[name] = val; return val && !was; };
-    const heldDir = left || right || up || down;
-    if (edge("left", left) || edge("right", right) || edge("up", up) || edge("down", down)) {
-      if (left) move(-1, 0); else if (right) move(1, 0); else if (up) move(0, -1); else if (down) move(0, 1);
-      gpRepeat = 22;
-    } else if (heldDir && gpRepeat === 0) {
-      if (left) move(-1, 0); else if (right) move(1, 0); else if (up) move(0, -1); else if (down) move(0, 1);
-      gpRepeat = 9;
-    }
-    if (edge("sel", sel) && !nav.drill) activate();
-    if (edge("bk", bk)) back();
-  }
-  requestAnimationFrame(pollGamepad);
+// ---- physical input via the raw HID input report ----
+// Physical buttons: byte 15 bits 0-7 = perimeter 1-8; byte 16 bit 0 = center (9), bit 1 = stick-click (10).
+// Nav scheme (per design): center/stick-click = confirm; any perimeter button = back; stick = directions.
+const inputEdge = {};
+let dirRepeatAt = 0;
+function onInputReport(e) {
+  if (e.device !== controllers[activeCtrl]?.device) return;
+  const d = new Uint8Array(e.data.buffer.slice(e.data.byteOffset, e.data.byteOffset + e.data.byteLength));
+  lastInputAt = performance.now();
+  const next = new Set();
+  for (let bit = 0; bit < 8; bit++) if (d[15] & (1 << bit)) next.add(bit);
+  if (d[16] & 0x01) next.add(8);
+  if (d[16] & 0x02) next.add(9);
+  const dz = (v) => (Math.abs(v) < 0.16 ? 0 : v);
+  liveAxes = [dz((d[0] - 128) / 128), dz((d[1] - 128) / 128)];
+  phys = next;
+  handlePhysInput(next, liveAxes);
+  updateLive();
+  setGpStatus(true);
 }
-const GP_ACTION = ["cross", "circle", "square", "triangle", "L1", "R1", "L2", "R2", "create", "options", "L3", "R3", "up", "down", "left", "right", "PS", "touchpad"];
+
+function handlePhysInput(buttons, axes) {
+  if (renaming) return;
+  const now = lastInputAt;
+  const dir = { left: axes[0] < -0.5, right: axes[0] > 0.5, up: axes[1] < -0.5, down: axes[1] > 0.5 };
+  const heldDir = dir.left || dir.right || dir.up || dir.down;
+  const fire = (k) => { if (k === "left") move(-1, 0); else if (k === "right") move(1, 0); else if (k === "up") move(0, -1); else move(0, 1); };
+  let edged = false;
+  for (const k of ["left", "right", "up", "down"]) {
+    if (dir[k] && !inputEdge[k]) { fire(k); dirRepeatAt = now + 380; edged = true; }
+    inputEdge[k] = dir[k];
+  }
+  if (!edged && heldDir && now >= dirRepeatAt) {
+    fire(dir.left ? "left" : dir.right ? "right" : dir.up ? "up" : "down");
+    dirRepeatAt = now + 130;
+  }
+  const confirm = buttons.has(8) || buttons.has(9);           // center or stick-click
+  const wantBack = [0, 1, 2, 3, 4, 5, 6, 7].some((i) => buttons.has(i)); // any perimeter
+  if (confirm && !inputEdge.confirm && !nav.drill) activate();
+  inputEdge.confirm = confirm;
+  if (wantBack && !inputEdge.back) back();
+  inputEdge.back = wantBack;
+}
+
+function setGpStatus(on) {
+  const gs = $("#gp-status");
+  if (gs) { gs.textContent = on ? "controller: connected" : "controller: not detected"; gs.classList.toggle("on", on); }
+}
 
 // ============================ sound ============================
 let actx = null;
@@ -561,7 +569,8 @@ function startWave() {
 function init() {
   startWave();
   tickClock(); setInterval(tickClock, 15000);
-  requestAnimationFrame(pollGamepad);
+  // mark the controller disconnected if no input report has arrived recently
+  setInterval(() => { if (performance.now() - lastInputAt > 1500) setGpStatus(false); }, 800);
   if (navigator.hid) {
     navigator.hid.addEventListener("disconnect", () => { /* keep simple: status refresh */ updateDeviceStatus(); });
   }
