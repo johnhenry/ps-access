@@ -69,7 +69,6 @@ function profileSVG(profile, { focus = null } = {}) {
   const stick = profile.ports[0];
   const orient = stick.kind === "stick" ? stick.orientation : 3;
   const oDeg = ORIENT_ROT[orient] ?? 0, theta = rad(oDeg);
-  const pDeg = ORIENT_ROT[profile._physOrient ?? orient] ?? 0; // device's real stick side
   const R = (x, y) => { const [rx, ry] = rotV(x - M.CX, y - M.CY, theta); return [M.CX + rx, M.CY + ry]; };
   const act = (code) => (code && ACTIONS[code]) ? ` data-act="${ACTIONS[code]}"` : "";
   const seg = (f) => `seg${f ? " foc" : ""}`;
@@ -84,7 +83,7 @@ function profileSVG(profile, { focus = null } = {}) {
     s += `<text x="${(M.CX + M.RM * Math.cos(ca)).toFixed(1)}" y="${(M.CY + M.RM * Math.sin(ca) + 7).toFixed(1)}" class="lab">${symLabel(b.map1)}</text>`;
   }
   // center (B9)
-  s += `<circle cx="${M.CX}" cy="${M.CY}" r="${M.CTR}" class="${seg(focus?.type === "center")}"${act(profile.buttons[8].map1)}/>`;
+  s += `<circle cx="${M.CX}" cy="${M.CY}" r="${M.CTR}" class="${seg(focus?.type === "button" && focus.index === 8)}"${act(profile.buttons[8].map1)}/>`;
   s += `<text x="${M.CX}" y="${M.CY + 8}" class="lab big">${symLabel(profile.buttons[8].map1)}</text>`;
   // ports
   for (let p = 1; p <= 4; p++) {
@@ -95,10 +94,11 @@ function profileSVG(profile, { focus = null } = {}) {
     s += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${M.PORT_R}" class="${seg(focus?.type === "port" && focus.index === p)}"${port.kind === "button" ? act(port.map1) : ""}/>`;
     s += `<text x="${x.toFixed(1)}" y="${(y + 5).toFixed(1)}" class="lab sm">${lbl}</text>`;
   }
-  // stick — thumb carries the data updateLive() needs to animate it in this render's frame
+  // stick — B10 (stick click) highlights the well/thumb; thumb carries its rest position for live
   const [sx, sy] = R(M.CX, M.CY + M.STICK_DIST);
-  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R}" class="stickwell${focus?.type === "stick" ? " foc" : ""}"/>`;
-  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R - 8}" class="thumb" data-bx="${sx.toFixed(1)}" data-by="${sy.toFixed(1)}" data-odeg="${oDeg}" data-pdeg="${pDeg}"${act(profile.buttons[9].map1)}/>`;
+  const stickFoc = focus?.type === "stick" || (focus?.type === "button" && focus.index === 9);
+  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R}" class="stickwell${stickFoc ? " foc" : ""}"/>`;
+  s += `<circle cx="${sx.toFixed(1)}" cy="${sy.toFixed(1)}" r="${M.STICK_R - 8}" class="thumb${stickFoc ? " foc" : ""}" data-bx="${sx.toFixed(1)}" data-by="${sy.toFixed(1)}"${act(profile.buttons[9].map1)}/>`;
   s += `</svg>`;
   return s;
 }
@@ -109,11 +109,11 @@ function updateLive() {
     el.classList.toggle("on", liveActions.has(el.getAttribute("data-act")));
   }
   for (const th of document.querySelectorAll("#stage svg .thumb")) {
+    // raw axes — the live thumb always reflects the physical stick, regardless of the
+    // displayed orientation (which only relocates where the stick is drawn)
     const bx = +th.dataset.bx, by = +th.dataset.by;
-    const t = rad((+th.dataset.odeg) - (+th.dataset.pdeg)); // rotate relative to the device's real side
-    const [vx, vy] = rotV(liveAxes[0], liveAxes[1], t);
-    th.setAttribute("cx", (bx + vx * M.THUMB_R).toFixed(1));
-    th.setAttribute("cy", (by + vy * M.THUMB_R).toFixed(1));
+    th.setAttribute("cx", (bx + liveAxes[0] * M.THUMB_R).toFixed(1));
+    th.setAttribute("cy", (by + liveAxes[1] * M.THUMB_R).toFixed(1));
   }
 }
 
