@@ -46,6 +46,13 @@ const CONTROLLER_ICON = `<svg class="ctrl-icon" viewBox="0 0 120 92" xmlns="http
   <circle class="seg" cx="82" cy="52" r="4.2"/>
 </svg>`;
 
+// Stylized, generic save (floppy-disk) icon for the Save blade — same `.seg` segment style.
+const SAVE_ICON = `<svg class="save-icon" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <path class="seg" d="M28 20 H60 L76 36 V68 Q76 76 68 76 H28 Q20 76 20 68 V28 Q20 20 28 20 Z"/>
+  <rect class="seg" x="38" y="20" width="18" height="16" rx="2"/>
+  <rect class="seg" x="32" y="48" width="32" height="22" rx="3"/>
+</svg>`;
+
 function activeProfile() {
   const b = BLADES[nav.col];
   if (b?.kind === "profile") return controllers[activeCtrl]?.profiles[b.slot] || null;
@@ -234,7 +241,9 @@ function render() {
     if (b.kind === "profile") icon.innerHTML = profileSVG(controllers[activeCtrl]?.profiles[b.slot]);
     else {
       const g = document.createElement("div"); g.className = "glyph";
-      if (b.kind === "controllers") g.innerHTML = CONTROLLER_ICON; else g.textContent = b.glyph;
+      if (b.kind === "controllers") g.innerHTML = CONTROLLER_ICON;
+      else if (b.kind === "save") g.innerHTML = SAVE_ICON;
+      else g.textContent = b.glyph;
       icon.append(g);
     }
     const lab = document.createElement("div");
