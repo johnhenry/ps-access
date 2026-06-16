@@ -46,26 +46,31 @@ node cli.mjs restore captures/backup-....json
 npm start            # serves the project at http://localhost:3000
 ```
 
-Open **<http://localhost:3000/web/>** in Chrome/Edge. Click **Add controller**, pick your
-Access Controller(s), and edit. You can switch between connected controllers, rename them,
-load/save each profile, and **copy a profile to another controller** or **apply to all**.
+Open **<http://localhost:3000/web/>** in Chrome/Edge.
 
-### Two views
+### XMB view (default, `index.html`)
 
-- **Form** — the dropdown editor for every button, the built-in stick, and the 4 expansion
-  ports, including an **Advanced stick tuning** panel (sensitivity / deadzone). Value meanings
-  aren't officially documented (`0` = firmware default); a **PS5 default preset** is provided.
-- **Controller** — an SVG of the Access Controller showing each input's current mapping. The
-  whole layout **rotates to match the stick orientation** (below/right/above/left), with B10
-  shown beside the stick and the expansion ports opposite it.
-  Click any element to edit it in a popover. Toggle **▶ Live input** to release the device to
-  the browser Gamepad API and **simulate the real controller**: press a physical button and
-  the action it's mapped to lights up; move the stick and the on-screen stick follows. Load or
-  Save re-acquires the device for HID access.
+A full-screen XrossMediaBar-style interface: a horizontal ribbon of blades
+(`Controllers · Profile 1 · 2 · 3 · Save`, each profile rendered as a live mini-controller),
+a vertical item list, and an enlarged "hero" render when you drill in. Edit button/stick/port
+mappings with horizontal value spinners, then save to the controller.
 
-> Note: WebHID and the Gamepad API can't read the same device at once, so live input runs only
-> while the device is released (the **Live input** toggle handles this). Chrome also needs one
-> physical button press before it exposes a gamepad.
+It's driven by the controller's **raw HID input report**, so it reads *physical* buttons
+regardless of remapping: tilt the **stick** to navigate, **center / stick-click = confirm**,
+**any perimeter button = back**, and pressing any physical button lights it up on every render.
+Keyboard works too (arrows / Enter / Backspace). A **✦ Classic** link opens the editor below.
+
+### Classic editor (`classic.html`)
+
+The dropdown/form editor with a **Form** and a **Controller (SVG)** view, an **Advanced stick
+tuning** panel, and **copy-to-another-controller / apply-to-all**. Value meanings aren't
+officially documented (`0` = firmware default); a **PS5 default preset** is provided. Reached
+from the XMB via **Classic ▸**.
+
+### Diagnostics (`hid-capture.html`)
+
+A developer tool that shows the live input report and logs which bits flip on each press —
+used to reverse-engineer the physical-button layout (see PROTOCOL.md).
 
 ## Layout
 
@@ -73,7 +78,9 @@ load/save each profile, and **copy a profile to another controller** or **apply 
 lib/access-protocol.mjs   shared, I/O-free protocol (parse/build/CRC/enums) — used by both tools
 lib/hid-node.mjs          node-hid transport
 cli.mjs                   command-line tool
-web/                      WebHID configurator (index.html, app.js, hid-web.mjs)
+web/index.html + xmb.js   XMB-style configurator (default UI), via hid-web.mjs
+web/classic.html + app.js classic form/controller editor
+web/hid-capture.html      input-report diagnostics / RE tool
 captures/                 profile backups (created on backup/auto-backup)
 reference/                upstream code.js / crc.js / index.html (source of the protocol)
 PROTOCOL.md               protocol documentation

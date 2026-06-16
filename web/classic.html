@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PS Access Controller Configurator</title>
+<style>
+  :root {
+    --bg: #0f1216; --panel: #181d24; --panel2: #1f2630; --line: #2b333f;
+    --text: #e6edf3; --dim: #93a1b0; --accent: #4a86ff; --accent2: #2f6bd6;
+    --ok: #36c08a; --warn: #e0b341; --err: #ff6b6b; --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header {
+    display: flex; align-items: center; gap: 14px; padding: 14px 20px;
+    border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5;
+  }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .sub { color: var(--dim); font-size: 12px; }
+  .spacer { flex: 1; }
+  button {
+    font: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line);
+    padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary { background: var(--accent2); border-color: var(--accent); }
+  button.ghost { background: transparent; }
+  select, input[type=text] {
+    font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+    padding: 5px 7px; border-radius: 7px; min-width: 0;
+  }
+  /* Customizable <select> (Chrome 135+): style the trigger + popup to match the app.
+     Browsers without support ignore these rules and fall back to the native select. */
+  select, ::picker(select) { appearance: base-select; }
+  select { display: inline-flex; align-items: center; gap: 8px; }
+  select:hover, select:open { border-color: var(--accent); }
+  select::picker-icon { color: var(--dim); transition: transform .15s ease; }
+  select:open::picker-icon { transform: rotate(180deg); }
+  ::picker(select) {
+    appearance: base-select;
+    background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 16px 48px rgba(0,0,0,.55); padding: 5px;
+  }
+  /* XMB-style category headers (non-selectable rows; text styled via .opt-name, which
+     reliably reaches the picker — the ::picker option.grp compound did not). */
+  option.grp { pointer-events: none; cursor: default; opacity: 1; padding: 11px 12px 4px; }
+  .grp .opt-name { color: #9fc0ff; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em; }
+  ::picker(select) option.grp { background: linear-gradient(90deg, rgba(74,134,255,.15), transparent 72%); }
+  ::picker(select) option.grp::checkmark { display: none; }
+  ::picker(select) option {
+    padding: 7px 12px; border-radius: 6px; color: #f2f6fb; cursor: pointer;
+  }
+  .opt-sym { display: inline-block; width: 22px; text-align: center; color: #f2f6fb; font-size: 15px; }
+  .opt-name { color: #f2f6fb; }
+  ::picker(select) option:hover, ::picker(select) option:focus-visible { background: var(--panel); outline: none; }
+  ::picker(select) option:checked { background: var(--accent2); }
+  ::picker(select) option:checked .opt-sym, ::picker(select) option:checked .opt-name { color: #fff; }
+  ::picker(select) option::checkmark { color: #fff; }
+  .layout { display: grid; grid-template-columns: 260px 1fr; min-height: calc(100vh - 56px); }
+  aside { border-right: 1px solid var(--line); background: var(--panel); padding: 14px; }
+  aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); margin: 0 0 10px; }
+  .ctrl-card {
+    border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; margin-bottom: 10px;
+    cursor: pointer; background: var(--panel2);
+  }
+  .ctrl-card.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .ctrl-card .name { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .ctrl-card .meta { color: var(--dim); font-size: 12px; margin-top: 3px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; }
+  .dot.off { background: var(--dim); }
+  main { padding: 18px 22px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+  .tab { padding: 7px 14px; border-radius: 8px 8px 0 0; }
+  .tab.active { background: var(--panel); border-color: var(--accent); }
+  .profile { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .row { display: grid; grid-template-columns: 130px 1fr 1fr auto; gap: 10px; align-items: center; padding: 5px 0; }
+  .row label.k { color: var(--dim); }
+  .section-title { font-weight: 600; margin: 18px 0 6px; color: var(--text); border-top: 1px solid var(--line); padding-top: 14px; }
+  .section-title:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 16px 0; }
+  .toolbar .grp { display: flex; gap: 8px; align-items: center; }
+  #status { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin: 0 22px; display: none; }
+  #status.show { display: block; }
+  #status.ok { background: rgba(54,192,138,.12); color: var(--ok); }
+  #status.err { background: rgba(255,107,107,.12); color: var(--err); }
+  #status.info { background: rgba(74,134,255,.12); color: var(--accent); }
+  .empty { color: var(--dim); padding: 40px; text-align: center; }
+  .pill { font-size: 11px; color: var(--dim); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 5px; color: var(--accent); }
+
+  /* view toggle */
+  .topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .viewtoggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .viewtoggle button { border: none; border-radius: 0; background: transparent; padding: 7px 14px; }
+  .viewtoggle button.active { background: var(--accent2); color: #fff; }
+  .live-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dim); }
+  .live-indicator .dot { background: var(--dim); }
+  .live-indicator.on .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+
+  /* svg controller view */
+  .svgwrap { display: flex; justify-content: center; padding: 6px 0 2px; }
+  .svgwrap svg { width: 100%; max-width: 640px; height: auto; }
+  .slot { cursor: pointer; }
+  .slot .slot-bg { fill: var(--panel2); stroke: var(--line); stroke-width: 2; transition: fill .08s, stroke .08s; }
+  .slot:hover .slot-bg { stroke: var(--accent); }
+  .slot.active .slot-bg { fill: var(--accent2); stroke: var(--accent); }
+  .slot .slot-idx { fill: var(--dim); font-size: 11px; }
+  .slot .slot-label { fill: var(--text); font-size: 14px; font-weight: 600; }
+  .slot .slot-label.sym { font-size: 18px; }
+  .slot.empty .slot-label { fill: var(--dim); font-weight: 400; }
+  .svg-body { fill: var(--panel); stroke: var(--line); stroke-width: 2; }
+  .svg-hole { fill: none; stroke: var(--line); stroke-width: 1.5; opacity: .55; }
+  .slot .slot-bg.wedge { stroke-linejoin: round; }
+  /* thumb matches the buttons' grey; ONLY the thumb turns blue while B10 (L3) is pressed —
+     the stick choice label and the ring around the stick stay neutral */
+  .stick-thumb { fill: var(--panel2); stroke: var(--line); stroke-width: 2; transition: cx .05s linear, cy .05s linear; }
+  .slot[data-stick].active .stick-thumb { fill: var(--accent2); stroke: var(--accent); }
+  .svg-hint { fill: var(--dim); font-size: 12px; }
+
+  /* popover editor */
+  .popover {
+    position: fixed; z-index: 50; background: var(--panel); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 14px; box-shadow: 0 12px 40px rgba(0,0,0,.5); min-width: 240px;
+  }
+  .popover h4 { margin: 0 0 10px; font-size: 13px; }
+  .popover .field { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .backdrop { position: fixed; inset: 0; z-index: 40; }
+
+  /* stick tuning */
+  .tuning { border: 1px dashed var(--line); border-radius: 8px; padding: 12px; margin-top: 10px; }
+  .tuning summary { cursor: pointer; color: var(--dim); }
+  .tuning .trow { display: grid; grid-template-columns: 130px 1fr 48px; gap: 10px; align-items: center; margin: 8px 0; }
+  .tuning input[type=range] { width: 100%; }
+  .tuning .note { color: var(--warn); font-size: 12px; margin-top: 8px; }
+  .tuning .presets { display: flex; gap: 8px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>PS Access Controller Configurator</h1>
+    <div class="sub">Read &amp; write on-device profiles over USB-C — no PS5. Multi-controller.</div>
+  </div>
+  <div class="spacer"></div>
+  <a href="./index.html" class="ghost" style="text-decoration:none; padding:7px 12px; border:1px solid var(--line); border-radius:8px; color:var(--text);">✦ XMB</a>
+  <button id="add" class="primary">+ Add controller</button>
+</header>
+
+<div id="status"></div>
+
+<div class="layout">
+  <aside>
+    <h2>Controllers</h2>
+    <div id="controller-list"></div>
+    <div id="no-controllers" class="empty" style="padding:14px 0; text-align:left;">
+      None connected. Click <b>Add controller</b> and pick your Access Controller(s) from the
+      Chrome chooser. Connect each via <b>USB-C</b>.
+    </div>
+  </aside>
+  <main>
+    <div id="editor"></div>
+  </main>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
