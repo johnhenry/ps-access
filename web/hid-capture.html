@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Access Controller — input report RE</title>
+<style>
+  body { font: 13px ui-monospace, Menlo, monospace; background: #0f1216; color: #e6edf3; margin: 0; padding: 18px; }
+  h1 { font-size: 15px; margin: 0 0 6px; }
+  .sub { color: #93a1b0; margin-bottom: 14px; }
+  button { font: inherit; background: #2f6bd6; color: #fff; border: 0; padding: 8px 14px; border-radius: 8px; cursor: pointer; margin-right: 8px; }
+  button.alt { background: #1f2630; border: 1px solid #2b333f; }
+  #status { margin: 10px 0; color: #45d29a; }
+  /* live byte/bit grid */
+  #grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px 14px; margin: 14px 0; max-width: 1100px; }
+  .byte { border: 1px solid #2b333f; border-radius: 6px; padding: 4px 6px; }
+  .byte.volatile { opacity: .35; }
+  .byte .idx { color: #93a1b0; font-size: 11px; }
+  .byte .bits { display: flex; gap: 2px; margin-top: 2px; }
+  .bit { width: 14px; height: 16px; display: grid; place-items: center; border-radius: 3px; background: #1a2029; color: #5c6b7a; font-size: 10px; }
+  .bit.hi { background: #2f6bd6; color: #fff; }
+  .bit.changed { outline: 2px solid #ffcd5e; }
+  #log { white-space: pre; background: #0a0d12; border: 1px solid #2b333f; border-radius: 8px; padding: 12px; max-height: 320px; overflow: auto; }
+  .row { margin: 2px 0; }
+  .hl { color: #ffcd5e; }
+</style>
+</head>
+<body>
+  <h1>Access Controller — input report reverse-engineering</h1>
+  <div class="sub">Connect, stay still for the idle baseline, then press <b>one physical button at a time</b>. Each distinct press is logged with the bits that flipped.</div>
+  <button id="connect">Connect controller</button>
+  <button id="rebaseline" class="alt">Re-take idle baseline</button>
+  <button id="clear" class="alt">Clear log</button>
+  <div id="status">Not connected.</div>
+
+  <div id="grid"></div>
+
+  <h1>Press log</h1>
+  <div id="log">(press buttons after baseline is taken)</div>
+
+<script type="module">
+const VID = 0x054c, PID = 0x0e5f;
+const $ = (s) => document.querySelector(s);
+let device = null;
+let baseline = null;        // stable baseline byte array (data, no report id)
+let volatile = new Set();   // byte indices that vary while idle
+let idle = [];              // idle samples
+let phase = "init";         // init -> baselining -> watch
+let lastKey = "";
+const log = [];
+
+async function connect() {
+  try {
+    let devs = (await navigator.hid.getDevices()).filter(d => d.vendorId === VID && d.productId === PID);
+    if (!devs.length) devs = await navigator.hid.requestDevice({ filters: [{ vendorId: VID, productId: PID }] });
+    device = devs[0];
+    if (!device) { $("#status").textContent = "No controller selected."; return; }
+    if (!device.opened) await device.open();
+    device.oninputreport = onReport;
+    startBaseline();
+  } catch (e) { $("#status").textContent = "Error: " + (e.message || e); }
+}
+
+function startBaseline() {
+  baseline = null; volatile = new Set(); idle = []; phase = "baselining";
+  $("#status").textContent = "Taking idle baseline — keep hands OFF the controller…";
+  setTimeout(() => {
+    if (!idle.length) { $("#status").textContent = "No input reports received (is it on USB?)."; return; }
+    const len = idle[0].length;
+    baseline = idle[idle.length - 1].slice();
+    for (let i = 0; i < len; i++) {
+      const vals = new Set(idle.map(s => s[i]));
+      if (vals.size > 1) volatile.add(i); // changes while idle => counter/timestamp/axis jitter
+    }
+    phase = "watch";
+    $("#status").textContent = `Baseline set (${idle.length} samples, ${len} bytes). Volatile bytes ignored: [${[...volatile].join(", ")}]. Now press buttons one at a time.`;
+  }, 1600);
+}
+
+function onReport(e) {
+  const b = new Uint8Array(e.data.buffer.slice(e.data.byteOffset, e.data.byteOffset + e.data.byteLength));
+  if (phase === "baselining") { idle.push([...b]); return; }
+  if (phase !== "watch") return;
+  // changed bits vs baseline, ignoring volatile bytes
+  const changed = [];
+  for (let i = 0; i < b.length; i++) {
+    if (volatile.has(i)) continue;
+    const diff = (b[i] ^ baseline[i]) & 0xff;
+    if (diff) for (let bit = 0; bit < 8; bit++) if (diff & (1 << bit)) changed.push(`${i}.${bit}`);
+  }
+  renderGrid(b, changed);
+  const key = changed.slice().sort().join(",");
+  if (key && key !== lastKey) {
+    log.push({ key, hex: [...b].map(x => x.toString(16).padStart(2, "0")).join(" ") });
+    renderLog();
+  }
+  lastKey = key;
+}
+
+function renderGrid(b, changed) {
+  const g = $("#grid");
+  if (!g.children.length || g.children.length !== b.length) {
+    g.innerHTML = "";
+    for (let i = 0; i < b.length; i++) {
+      const d = document.createElement("div"); d.className = "byte"; d.dataset.i = i;
+      d.innerHTML = `<div class="idx">b${i}</div><div class="bits"></div>`;
+      g.append(d);
+    }
+  }
+  const changedSet = new Set(changed);
+  for (let i = 0; i < b.length; i++) {
+    const cell = g.children[i];
+    cell.classList.toggle("volatile", volatile.has(i));
+    const bitsEl = cell.querySelector(".bits");
+    if (bitsEl.children.length !== 8) { bitsEl.innerHTML = ""; for (let bit = 7; bit >= 0; bit--) { const s = document.createElement("div"); s.className = "bit"; s.textContent = bit; bitsEl.append(s); } }
+    for (let bit = 7; bit >= 0; bit--) {
+      const el = bitsEl.children[7 - bit];
+      el.classList.toggle("hi", !!(b[i] & (1 << bit)));
+      el.classList.toggle("changed", changedSet.has(`${i}.${bit}`));
+    }
+  }
+}
+
+function renderLog() {
+  $("#log").innerHTML = log.map((e, n) =>
+    `<div class="row"><span class="hl">press #${n + 1}</span>  bits: ${e.key || "(none)"}</div>`
+  ).join("") || "(none)";
+}
+
+$("#connect").onclick = connect;
+$("#rebaseline").onclick = startBaseline;
+$("#clear").onclick = () => { log.length = 0; lastKey = ""; renderLog(); };
+if (!("hid" in navigator)) $("#status").textContent = "WebHID not supported — use Chrome/Edge.";
+</script>
+</body>
+</html>
