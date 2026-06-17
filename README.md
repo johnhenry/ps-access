@@ -90,7 +90,7 @@ web/classic.html + app.js classic form/controller editor
 web/monitor.html + monitor.js  standalone XMB-styled live input monitor
 web/hid-capture.html      input-report diagnostics / RE tool
 captures/                 profile backups (created on backup/auto-backup)
-reference/                Jacek Fedoryński’s original web editor — kept for attribution / prior art
+reference/                Jacek Fedoryński’s original web editor — third-party, see reference/NOTICE.md
 PROTOCOL.md               protocol documentation
 ```
 
