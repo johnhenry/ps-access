@@ -49,7 +49,7 @@ npm start            # serves the project at http://localhost:3000
 
 Open **<http://localhost:3000/web/>** in Chrome/Edge.
 
-### XMB view (default, `index.html`)
+### XMB view (`index.html`)
 
 A full-screen XrossMediaBar-style interface: a horizontal ribbon of blades
 (`Controllers · Profile 1 · 2 · 3 · Save · Monitor`, each profile rendered as a live
@@ -59,7 +59,7 @@ button/stick/port mappings with horizontal value spinners, then save to the cont
 It's driven by the controller's **raw HID input report**, so it reads *physical* buttons
 regardless of remapping: tilt the **stick** to navigate, **center / stick-click = confirm**,
 **any perimeter button = back**, and pressing any physical button lights it up on every render.
-Keyboard works too (arrows / Enter / Backspace). A **✦ Classic** link opens the editor below.
+Keyboard works too (arrows / Enter / Backspace).
 
 Under the controller name in the top bar, the **active on-device profile** is shown live (e.g.
 `Profile 3 · stick on the right`) — it reflects whichever profile is selected on the controller
@@ -77,13 +77,6 @@ be tested freely — opening it first shows a **confirm gate** warning that you'
 the **active on-device profile**, matching its **orientation**, and re-renders if you switch
 profiles on the controller while watching. (Also available as a standalone page, `monitor.html`.)
 
-### Classic editor (`classic.html`)
-
-The dropdown/form editor with a **Form** and a **Controller (SVG)** view, an **Advanced stick
-tuning** panel, and **copy-to-another-controller / apply-to-all**. Value meanings aren't
-officially documented (`0` = firmware default); a **PS5 default preset** is provided. Reached
-from the XMB via **Classic ▸**.
-
 ### Diagnostics (`hid-capture.html`)
 
 A developer tool that shows the live input report and logs which bits flip on each press —
@@ -95,9 +88,8 @@ used to reverse-engineer the physical-button layout (see PROTOCOL.md).
 web/access-protocol.mjs   shared, I/O-free protocol (parse/build/CRC/enums) — used by both tools
 lib/hid-node.mjs          node-hid transport (Node CLI only)
 cli.mjs                   command-line tool
-web/index.html + xmb.js   XMB-style configurator (default UI) + live Monitor blade, via hid-web.mjs
+web/index.html + xmb.js   XMB-style configurator (the web UI) + live Monitor blade, via hid-web.mjs
 web/controller-render.mjs shared controller SVG render + physical-input decode
-web/classic.html + app.js classic form/controller editor
 web/monitor.html + monitor.js  standalone XMB-styled live input monitor
 web/hid-capture.html      input-report diagnostics / RE tool
 captures/                 profile backups (created on backup/auto-backup)
