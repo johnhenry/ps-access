@@ -23,6 +23,7 @@ let liveAxes = [0, 0];     // physical stick, -1..1
 let lastInputAt = 0;
 let renaming = false;
 let monitorMode = false;   // full-screen live input monitor open
+let lastProfileSlot = 0;   // slot of the most recently focused profile blade — what the Save blade acts on
 
 const BLADES = [
   { key: "controllers", label: "Controllers", kind: "controllers" },
@@ -163,7 +164,7 @@ function bladeItems(blade) {
   }
   if (blade.kind === "save") {
     return [
-      { key: "savep", label: "Save this profile", action: "save" },
+      { key: "savep", label: `Save Profile ${lastProfileSlot + 1}` + (controllers[activeCtrl]?.profiles[lastProfileSlot]?.name ? ` · ${controllers[activeCtrl].profiles[lastProfileSlot].name}` : ""), action: "save" },
       { key: "saveall", label: "Save all 3 profiles", action: "saveAll" },
       { key: "reload", label: "Reload from controller", action: "reload" },
     ];
@@ -176,6 +177,7 @@ function bladeItems(blade) {
 
 // ============================ rendering ============================
 function render() {
+  if (BLADES[nav.col]?.kind === "profile") lastProfileSlot = BLADES[nav.col].slot;
   const bladesEl = $("#blades");
   bladesEl.innerHTML = "";
   BLADES.forEach((b, i) => {
@@ -286,7 +288,7 @@ function activate() {
   switch (it.action) {
     case "selectCtrl": activeCtrl = it.ctrl; nav.col = 1; nav.row = 0; render(); toast("Controller " + (it.ctrl + 1)); break;
     case "rename": startRename(); break;
-    case "save": saveProfileFor(BLADES[nav.col].kind === "profile" ? BLADES[nav.col].slot : 0); break;
+    case "save": saveProfileFor(BLADES[nav.col].kind === "profile" ? BLADES[nav.col].slot : lastProfileSlot); break;
     case "saveAll": saveAll(); break;
     case "reload": reloadFromDevice(); break;
     case "monitor": enterMonitor(); break;
