@@ -898,6 +898,10 @@ function startWave() {
 
 // ============================ init ============================
 function init() {
+  // Register the (network-first) service worker for offline use + installability.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch(() => { /* non-fatal */ });
+  }
   startWave();
   tickClock(); setInterval(tickClock, 15000);
   // mark the controller disconnected if no input report has arrived recently (also fades the wave out)

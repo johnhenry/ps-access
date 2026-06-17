@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ps-access">
+  <rect width="512" height="512" rx="112" fill="#0b1320"/>
+  <!-- stylized Access Controller: ring of buttons around a central stick -->
+  <g fill="none" stroke="#6fa8ff" stroke-width="22">
+    <circle cx="256" cy="256" r="120"/>
+  </g>
+  <circle cx="256" cy="256" r="46" fill="#2f6bd6" stroke="#6fa8ff" stroke-width="10"/>
+  <g fill="#6fa8ff">
+    <circle cx="256" cy="96" r="26"/>
+    <circle cx="256" cy="416" r="26"/>
+    <circle cx="96" cy="256" r="26"/>
+    <circle cx="416" cy="256" r="26"/>
+  </g>
+</svg>

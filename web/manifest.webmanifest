@@ -1,0 +1,14 @@
+{
+  "name": "Access Controller Configurator",
+  "short_name": "ps-access",
+  "description": "Read, edit, share, and back up PlayStation Access Controller profiles from a PC over USB-C — no PS5 required.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#05070c",
+  "theme_color": "#05070c",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
