@@ -162,7 +162,11 @@ function bladeItems(blade) {
     ];
   }
   if (blade.kind === "controllers") {
-    return controllers.map((c, i) => ({ key: "ctrl" + i, label: c.name + (i === activeCtrl ? "  ✓" : ""), action: "selectCtrl", ctrl: i }));
+    // Always offer a manual connect — works as first-connect and as a reconnect/grant fallback.
+    return [
+      ...controllers.map((c, i) => ({ key: "ctrl" + i, label: c.name + (i === activeCtrl ? "  ✓" : ""), action: "selectCtrl", ctrl: i })),
+      { key: "connect", label: "＋ Connect a controller…", action: "connect" },
+    ];
   }
   if (blade.kind === "save") {
     return [
@@ -313,6 +317,7 @@ function activate() {
     case "saveAll": saveAll(); break;
     case "reload": reloadFromDevice(); break;
     case "monitor": armMonitor(); break;
+    case "connect": connectOnce(); break;
   }
 }
 
@@ -343,15 +348,21 @@ async function load() {
   if (!hidSupported()) { $("#unsupported").classList.add("show"); return; }
   const granted = await grantedControllers();
   if (!granted.length) {
-    // need a user gesture to request; show a prompt overlay
-    toast("Click anywhere to connect your controller", 6000);
-    document.body.addEventListener("click", connectOnce, { once: true });
+    // Focus the Controllers blade so its "＋ Connect a controller…" action is front and center.
+    nav.col = 0; nav.row = 0; render();
+    toast("No controller — choose “＋ Connect a controller…”", 6000);
     return;
   }
   await addDevices(granted);
 }
 async function connectOnce() {
-  try { const ds = await requestControllers(); await addDevices(ds); } catch (e) { toast(String(e.message || e)); }
+  try {
+    const before = controllers.length;
+    const ds = await requestControllers();
+    if (!ds.length) { toast("No controller selected", 2500); return; }
+    await addDevices(ds);
+    toast(controllers.length > before ? "Controller connected" : "Controller already connected", 2000);
+  } catch (e) { toast(String(e.message || e), 4000); }
 }
 async function addDevices(devices) {
   for (const device of devices) {

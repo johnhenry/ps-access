@@ -61,6 +61,10 @@ regardless of remapping: tilt the **stick** to navigate, **center / stick-click 
 **any perimeter button = back**, and pressing any physical button lights it up on every render.
 Keyboard works too (arrows / Enter / Backspace).
 
+Unplugging and replugging the controller **reconnects automatically** (no refresh). The
+**Controllers** blade also has a persistent **＋ Connect a controller…** action (activate it with
+Enter or a click) to grant or reconnect a controller on demand.
+
 Under the controller name in the top bar, the **active on-device profile** is shown live (e.g.
 `Profile 3 · stick on the right`) — it reflects whichever profile is selected on the controller
 itself and **updates the moment you press the device's profile button**, independent of the UI
