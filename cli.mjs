@@ -2,7 +2,7 @@
 // ps-access — read/write PlayStation Access Controller profiles over USB-C (no PS5).
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { listControllers, openController, readProfileRaw, writeProfileRaw } from "./lib/hid-node.mjs";
+import { listControllers, openController, readProfileRaw, writeProfileRaw, setActiveProfile } from "./lib/hid-node.mjs";
 import {
   parseProfile, buildProfile, describeProfile, PROFILE_SIZE, PROFILE_COUNT,
   ACTION_BY_NAME, ACTIONS, STICK_BY_NAME, ORIENTATION_BY_NAME,
@@ -119,6 +119,18 @@ const COMMANDS = {
     }
   },
 
+  "set-active"(opts) {
+    const slot = Number(opts._[0]);
+    if (!(slot >= 1 && slot <= PROFILE_COUNT)) throw new Error("usage: set-active <1..3>");
+    const { device, info } = openController(opts.device ?? 0);
+    try {
+      setActiveProfile(device, slot);
+      console.log(`Switched controller [${info.index}] to active Profile ${slot}.`);
+    } finally {
+      device.close();
+    }
+  },
+
   "read-profile"(opts) {
     const slot = Number(opts._[0]);
     if (!(slot >= 1 && slot <= PROFILE_COUNT)) throw new Error("usage: read-profile <1..3>");
@@ -218,6 +230,7 @@ Commands:
   list                          List connected controllers
   dump                          Read + decode all 3 profiles
   read-profile <1..3> [--json]  Read + decode one profile
+  set-active <1..3>             Switch the controller's active profile (like its profile button)
   backup [--out file]           Save all 3 profiles to captures/ (raw + decoded)
   restore <backup.json>         Write all 3 profiles back from a backup
   write-profile <1..3> <file>   Write one profile from a backup/hex/binary file

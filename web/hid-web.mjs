@@ -2,6 +2,7 @@
 import {
   VENDOR_ID, PRODUCT_ID, REPORT_ID_CMD, REPORT_ID_DATA, BT_ONLY_REPORT_ID,
   PROFILE_SIZE, PACKETS_PER_PROFILE, buildReadCommand, assembleProfile, buildWritePackets,
+  buildSetActiveCommand,
 } from "./access-protocol.mjs";
 
 export function hidSupported() {
@@ -45,6 +46,11 @@ export async function readProfileRaw(device, profileNumber) {
     packets.push(dvToU8(dv));
   }
   return assembleProfile(packets);
+}
+
+// Switch the controller's active profile (1..3) — like pressing its profile button.
+export async function setActiveProfile(device, profileNumber) {
+  await device.sendFeatureReport(REPORT_ID_CMD, buildSetActiveCommand(profileNumber));
 }
 
 export async function writeProfileRaw(device, profileNumber, profileBytes) {

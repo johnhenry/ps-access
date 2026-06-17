@@ -30,6 +30,7 @@ node cli.mjs list                       # list connected controllers
 node cli.mjs dump                        # decode all 3 profiles
 node cli.mjs backup                      # save all 3 profiles to captures/
 node cli.mjs read-profile 1 --json       # decode one profile as JSON
+node cli.mjs set-active 2                 # switch the active profile (like the profile button)
 node cli.mjs set 1 button5=triangle      # remap button 5
 node cli.mjs set 1 port1=cross           # expansion port 1 -> cross
 node cli.mjs set 1 "port0=left stick"    # built-in stick assignment
@@ -68,7 +69,9 @@ Enter or a click) to grant or reconnect a controller on demand.
 Under the controller name in the top bar, the **active on-device profile** is shown live (e.g.
 `Profile 3 · stick on the right`) — it reflects whichever profile is selected on the controller
 itself and **updates the moment you press the device's profile button**, independent of the UI
-cursor (decoded from input-report `byte 39`; see [PROTOCOL.md](PROTOCOL.md)). The ambient
+cursor (decoded from input-report `byte 39`; see [PROTOCOL.md](PROTOCOL.md)). You can also **switch
+it from the app**: each Profile blade has a **Set active on controller** item (the active one is
+marked `✓`), doing the same thing as the device's profile button — `set-active` on the CLI. The ambient
 background wave echoes it too: its three curves fade their leading lines as the active profile
 climbs (1 → all solid, 2 → first faded, 3 → first two faded), and fade out entirely when no
 controller is connected.

@@ -57,6 +57,20 @@ A profile blob is **956 bytes** (`PROFILE_DATA_SIZE`). There are **3 profile slo
 4. **Drain status:** read feature report `0x61` until byte `[2]` (remaining-count) is `0`
    (cap the loop). Skipping this desyncs the next read command.
 
+### Setting the active profile (1–3)
+
+Switch which profile the controller has **active** — the same thing its on-device profile
+button does — with a single command:
+
+1. Send feature report `0x60` with a 63-byte buffer where `buf[0] = 0x05`, `buf[1] = N` (rest 0).
+
+No `0x61` response needs draining. The switch is immediate: input-report `byte 39` (see below)
+updates to `N` within a frame, and the controller applies that profile's mapping. Verified by
+sending `0x05 0x01/0x02/0x03` and watching `byte 39` track `1/2/3`; the stored slot contents are
+untouched. Reverse-engineered by probing command opcodes while watching `byte 39` — opcode `0x05`
+with `byte[1] = 0` set `byte 39` to `0` (no/default profile), which pinned the encoding. Implemented
+as `buildSetActiveCommand(N)`.
+
 ### CRC
 
 Standard zlib/IEEE CRC-32 (poly `0xEDB88320`, init `0xFFFFFFFF`, final XOR `0xFFFFFFFF`),

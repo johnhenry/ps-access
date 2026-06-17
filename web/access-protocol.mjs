@@ -216,6 +216,18 @@ export function buildReadCommand(profileNumber) {
   return buf;
 }
 
+// 0x60 command that switches the controller's *active* profile (1..3) — the same thing the
+// device's profile button does. Reverse-engineered by probing the command channel while
+// watching input-report byte 39: opcode 0x05 with the 1-based profile number in byte 1.
+export const CMD_SET_ACTIVE = 0x05;
+export function buildSetActiveCommand(profileNumber) {
+  checkProfileNumber(profileNumber);
+  const buf = new Uint8Array(CMD_PAYLOAD_SIZE);
+  buf[0] = CMD_SET_ACTIVE;
+  buf[1] = profileNumber;
+  return buf;
+}
+
 // Reassemble a 956-byte profile from the 18 raw 0x61 responses. Each response is the
 // full report (report id at [0]); payload starts at READ_PAYLOAD_OFFSET.
 export function assembleProfile(packets) {

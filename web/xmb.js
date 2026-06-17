@@ -6,7 +6,7 @@ import {
 } from "./access-protocol.mjs";
 import {
   hidSupported, grantedControllers, requestControllers, ensureOpen,
-  readProfileRaw, writeProfileRaw,
+  readProfileRaw, writeProfileRaw, setActiveProfile,
 } from "./hid-web.mjs";
 import { SYMBOLS, symLabel, nameLabel, M, profileSVG, decodePhysical, PHYS_NAMES } from "./controller-render.mjs";
 
@@ -153,12 +153,14 @@ function drillRows(profile, key) {
 // vertical items for the focused blade
 function bladeItems(blade) {
   if (blade.kind === "profile") {
+    const isActive = blade.slot === deviceProfile;
     return [
       { key: "buttons", label: "Buttons", drill: true },
       { key: "stick", label: "Built-in stick", drill: true },
       { key: "ports", label: "Expansion ports", drill: true },
       { key: "tuning", label: "Stick tuning", drill: true },
       { key: "rename", label: "Rename profile", action: "rename" },
+      { key: "setactive", label: isActive ? "✓ Active on controller" : "Set active on controller", action: "setActive" },
       { key: "save", label: "Save to controller", action: "save" },
     ];
   }
@@ -319,7 +321,20 @@ function activate() {
     case "reload": reloadFromDevice(); break;
     case "monitor": armMonitor(); break;
     case "connect": connectOnce(); break;
+    case "setActive": setActiveFor(BLADES[nav.col].slot); break;
   }
+}
+
+// Switch the controller's active profile to this slot (like its profile button). The input
+// report reflects the change within a frame, so the indicator/wave update on their own.
+async function setActiveFor(slot) {
+  const c = controllers[activeCtrl];
+  if (!c) { toast("Connect a controller first"); return; }
+  try {
+    await ensureOpen(c.device);
+    await setActiveProfile(c.device, slot + 1);
+    toast(`Activated Profile ${slot + 1}`, 2000);
+  } catch (e) { toast("Couldn't switch profile: " + (e.message || e), 4000); }
 }
 
 function startRename() {
@@ -572,6 +587,7 @@ function onInputReport(e) {
     updateProfileTag();
     setWaveProfile(deviceProfile); // fade the wave's leading curves to match the active profile
     if (monitorMode) $("#mon-render").innerHTML = profileSVG(controllers[activeCtrl].profiles[deviceProfile]);
+    else if (!monitorArm && !nav.drill) render(); // refresh the "✓ Active on controller" marker
   }
   if (monitorMode) { updateMonitor(buttons, axes, d); setGpStatus(true); return; }
   if (monitorArm) { handleArmInput(buttons, axes); setGpStatus(true); return; }
