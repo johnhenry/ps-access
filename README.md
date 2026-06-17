@@ -64,7 +64,10 @@ Keyboard works too (arrows / Enter / Backspace). A **✦ Classic** link opens th
 Under the controller name in the top bar, the **active on-device profile** is shown live (e.g.
 `Profile 3 · stick on the right`) — it reflects whichever profile is selected on the controller
 itself and **updates the moment you press the device's profile button**, independent of the UI
-cursor (decoded from input-report `byte 39`; see [PROTOCOL.md](PROTOCOL.md)).
+cursor (decoded from input-report `byte 39`; see [PROTOCOL.md](PROTOCOL.md)). The ambient
+background wave echoes it too: its three curves fade their leading lines as the active profile
+climbs (1 → all solid, 2 → first faded, 3 → first two faded), and fade out entirely when no
+controller is connected.
 
 The **Monitor** blade opens a full-screen live input view (big controller render + physical-button
 chips + stick crosshair + the raw input report with the physical-button bytes highlighted). Because

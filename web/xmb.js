@@ -539,6 +539,7 @@ function onInputReport(e) {
   if (e.device !== controllers[activeCtrl]?.device) return;
   const d = new Uint8Array(e.data.buffer.slice(e.data.byteOffset, e.data.byteOffset + e.data.byteLength));
   lastInputAt = performance.now();
+  waveConnected = true; // a report is streaming -> the wave is visible
   const { buttons, axes, profile } = decodePhysical(d);
   liveAxes = axes;
   phys = buttons;
@@ -547,6 +548,7 @@ function onInputReport(e) {
   if (profile && profile - 1 !== deviceProfile) {
     deviceProfile = profile - 1;
     updateProfileTag();
+    setWaveProfile(deviceProfile); // fade the wave's leading curves to match the active profile
     if (monitorMode) $("#mon-render").innerHTML = profileSVG(controllers[activeCtrl].profiles[deviceProfile]);
   }
   if (monitorMode) { updateMonitor(buttons, axes, d); setGpStatus(true); return; }
@@ -621,6 +623,17 @@ function tickClock() {
 }
 
 // ============================ wave background ============================
+// Keep the original blue palette; vary only per-curve transparency by the active profile.
+// A curve fades when its index is below the active profile slot, so the active profile's curve
+// (and the ones after it) stay at full opacity:
+//   profile 1 -> all original; profile 2 -> curve 1 faded; profile 3 -> curves 1 & 2 faded.
+// When no controller is streaming, every curve fades fully out (transparent).
+let waveConnected = false;   // false -> all curves transparent
+let waveSlot = 0;            // active profile slot (0-2) driving the fade pattern
+const WAVE_FADED = 0.25;     // alpha multiplier for the "more transparent" leading curves
+const bandLevel = [0, 0, 0]; // eased per-curve alpha multiplier (0 = transparent, 1 = original)
+function setWaveProfile(slot) { waveSlot = (slot >= 0 && slot <= 2) ? slot : 0; }
+
 function startWave() {
   const cv = $("#wave"), ctx = cv.getContext("2d");
   let w, h;
@@ -636,7 +649,10 @@ function startWave() {
     t += 0.005;
     ctx.clearRect(0, 0, w, h);
     const hueShift = 18 * Math.sin(t * 0.05);
-    for (const b of bands) {
+    bands.forEach((b, i) => {
+      const target = !waveConnected ? 0 : (i < waveSlot ? WAVE_FADED : 1); // fade leading curves
+      bandLevel[i] += (target - bandLevel[i]) * 0.06;                       // ease the change
+      const lvl = bandLevel[i];
       ctx.beginPath();
       ctx.moveTo(0, h);
       for (let x = 0; x <= w; x += 16 * devicePixelRatio) {
@@ -646,10 +662,10 @@ function startWave() {
       }
       ctx.lineTo(w, h); ctx.closePath();
       const g = ctx.createLinearGradient(0, h * b.y - h * 0.2, 0, h);
-      g.addColorStop(0, `hsla(${b.hue + hueShift},70%,55%,${b.a})`);
+      g.addColorStop(0, `hsla(${b.hue + hueShift},70%,55%,${(b.a * lvl).toFixed(3)})`); // original color, eased alpha
       g.addColorStop(1, `hsla(${b.hue + hueShift},70%,30%,0)`);
       ctx.fillStyle = g; ctx.fill();
-    }
+    });
     requestAnimationFrame(draw);
   };
   draw();
@@ -659,10 +675,10 @@ function startWave() {
 function init() {
   startWave();
   tickClock(); setInterval(tickClock, 15000);
-  // mark the controller disconnected if no input report has arrived recently
-  setInterval(() => { if (performance.now() - lastInputAt > 1500) setGpStatus(false); }, 800);
+  // mark the controller disconnected if no input report has arrived recently (also fades the wave out)
+  setInterval(() => { if (performance.now() - lastInputAt > 1500) { setGpStatus(false); waveConnected = false; } }, 800);
   if (navigator.hid) {
-    navigator.hid.addEventListener("disconnect", () => { /* keep simple: status refresh */ updateDeviceStatus(); });
+    navigator.hid.addEventListener("disconnect", () => { waveConnected = false; updateDeviceStatus(); });
   }
   $("#mon-done").onclick = exitMonitor;
   $("#warn-start").onclick = confirmArm;
