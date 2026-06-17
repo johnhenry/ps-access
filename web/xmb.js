@@ -260,11 +260,14 @@ function render() {
   renderCrumb();
   layout();
   updateLive(); // re-apply live state to freshly built renders
+  announce(describeNav());
 }
 
 function renderItems() {
   const wrap = $("#items");
   wrap.innerHTML = "";
+  wrap.setAttribute("role", "listbox");
+  wrap.setAttribute("aria-label", BLADES[nav.col].label + (nav.drill ? " " + (DRILL_LABELS[nav.drill.key] || "") : "") + " options");
   const blade = BLADES[nav.col];
   if (nav.drill) {
     const profile = activeProfile();
@@ -274,6 +277,9 @@ function renderItems() {
       const disp = r.display(v);
       const el = document.createElement("div");
       el.className = "item" + (i === nav.drill.index ? " sel" : "");
+      el.setAttribute("role", "option");
+      el.setAttribute("aria-selected", String(i === nav.drill.index));
+      el.setAttribute("aria-label", `${r.label}: ${disp.name}`);
       el.innerHTML = `<span class="lab">${r.label}</span><span class="val"><span class="arrow">◀</span><span class="sym">${disp.sym || ""}</span> ${disp.name}<span class="arrow">▶</span></span>`;
       el.onclick = () => { nav.drill.index = i; render(); };
       wrap.append(el);
@@ -283,6 +289,8 @@ function renderItems() {
     items.forEach((it, i) => {
       const el = document.createElement("div");
       el.className = "item" + (i === nav.row ? " sel" : "");
+      el.setAttribute("role", "option");
+      el.setAttribute("aria-selected", String(i === nav.row));
       el.innerHTML = `<span class="chev">▸</span><span class="lab">${it.label}</span>`;
       el.onclick = () => { nav.row = i; activate(); };
       wrap.append(el);
@@ -302,11 +310,43 @@ function renderHero() {
   hero.style.opacity = ".97";
 }
 
+const DRILL_LABELS = { buttons: "Buttons", stick: "Built-in stick", ports: "Expansion ports", tuning: "Stick tuning" };
+
 function renderCrumb() {
   const blade = BLADES[nav.col];
   let txt = blade.label;
-  if (nav.drill) txt += " ›  " + ({ buttons: "Buttons", stick: "Built-in stick", ports: "Expansion ports", tuning: "Stick tuning" }[nav.drill.key] || "");
+  if (nav.drill) txt += " ›  " + (DRILL_LABELS[nav.drill.key] || "");
   $("#crumb").textContent = txt;
+}
+
+// ============================ screen-reader announcer ============================
+let lastAnnounce = "";
+function announce(msg) {
+  const el = $("#sr");
+  if (!el || !msg) return;
+  // Re-set even when identical so assistive tech re-reads (toggle a trailing marker).
+  el.textContent = msg === lastAnnounce ? msg + "​" : msg;
+  lastAnnounce = el.textContent;
+}
+
+// Concise description of the current focus, spoken by screen readers on every nav change.
+function describeNav() {
+  if (monitorMode) return "Live input monitor open. Observe the controller, then press Escape to exit.";
+  if (monitorArm) return `Start the live monitor? ${warnSel === 0 ? "Start monitoring" : "Cancel"}, option ${warnSel + 1} of 2. Up or Down to choose, Enter to confirm.`;
+  const blade = BLADES[nav.col];
+  if (nav.drill) {
+    const prof = activeProfile();
+    if (!prof) return `${blade.label}, ${DRILL_LABELS[nav.drill.key] || ""}. Connect a controller to edit.`;
+    const rows = drillRows(prof, nav.drill.key);
+    const r = rows[nav.drill.index];
+    if (!r) return `${blade.label}, ${DRILL_LABELS[nav.drill.key] || ""}`;
+    const disp = r.display(r.get());
+    return `${blade.label}, ${DRILL_LABELS[nav.drill.key] || ""}. ${r.label}: ${disp.name}. ${nav.drill.index + 1} of ${rows.length}. Left or Right to change, Backspace to go back.`;
+  }
+  const items = bladeItems(blade);
+  const it = items[nav.row];
+  const label = it ? it.label.replace(/\s+/g, " ").trim() : "";
+  return `${blade.label} section. ${label}. ${nav.row + 1} of ${items.length}.`;
 }
 
 // position the ribbon + item list to form the cross
@@ -664,8 +704,10 @@ function back() {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 window.addEventListener("keydown", (e) => {
+  if (helpOpen) { if (e.key === "Escape" || e.key === "Enter" || e.key === "?" || e.key === "Backspace") { closeHelp(); e.preventDefault(); } return; }
+  if (e.key === "?" || ((e.key === "h" || e.key === "H") && !renaming)) { openHelp(); e.preventDefault(); return; }
   if (monitorArm) {
-    if (e.key === "ArrowUp" || e.key === "ArrowDown") { warnSel = warnSel ? 0 : 1; renderWarnSel(); blip(440); e.preventDefault(); }
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") { warnSel = warnSel ? 0 : 1; renderWarnSel(); blip(440); announce(describeNav()); e.preventDefault(); }
     else if (e.key === "Enter") { pickArm(); e.preventDefault(); }
     else if (e.key === "Escape" || e.key === "Backspace") { cancelArm(); e.preventDefault(); }
     return;
@@ -681,6 +723,27 @@ window.addEventListener("keydown", (e) => {
   else if (k === "Backspace" || k === "Escape") { back(); e.preventDefault(); }
   else if (k === "m" || k === "M") { soundOn = !soundOn; toast("Sound " + (soundOn ? "on" : "off"), 1200); }
 });
+
+// ============================ help dialog ============================
+let helpOpen = false;
+let helpReturnFocus = null;
+function openHelp() {
+  helpOpen = true;
+  helpReturnFocus = document.activeElement;
+  const dlg = $("#help");
+  dlg.classList.add("show");
+  dlg.setAttribute("aria-hidden", "false");
+  $("#help-close")?.focus();
+  blip(660);
+}
+function closeHelp() {
+  helpOpen = false;
+  const dlg = $("#help");
+  dlg.classList.remove("show");
+  dlg.setAttribute("aria-hidden", "true");
+  try { helpReturnFocus?.focus?.(); } catch { /* ignore */ }
+  blip(330);
+}
 
 // ---- physical input via the raw HID input report ----
 // Physical buttons: byte 15 bits 0-7 = perimeter 1-8; byte 16 bit 0 = center (9), bit 1 = stick-click (10).
@@ -792,6 +855,11 @@ const bandLevel = [0, 0, 0]; // eased per-curve alpha multiplier (0 = transparen
 function setWaveProfile(slot) { waveSlot = (slot >= 0 && slot <= 2) ? slot : 0; }
 
 function startWave() {
+  // Honor "reduce motion": skip the animated background entirely (CSS also hides #wave).
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    window.addEventListener("resize", layout);
+    return;
+  }
   const cv = $("#wave"), ctx = cv.getContext("2d");
   let w, h;
   const resize = () => { w = cv.width = innerWidth * devicePixelRatio; h = cv.height = innerHeight * devicePixelRatio; };
@@ -866,6 +934,8 @@ function init() {
   $("#mon-done").onclick = exitMonitor;
   $("#warn-start").onclick = confirmArm;
   $("#warn-cancel").onclick = cancelArm;
+  $("#help-close").onclick = closeHelp;
+  $("#help").addEventListener("click", (e) => { if (e.target.id === "help") closeHelp(); });
   try {
     pendingShare = parseShareHash(location.hash);
     if (pendingShare) toast(`Shared profile "${pendingShare.name || "(unnamed)"}" detected — open Library ▸ to apply`, 6000);
