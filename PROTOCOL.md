@@ -1,13 +1,14 @@
 # PlayStation Access Controller — profile protocol
 
-Reverse-engineered/transcribed protocol for reading and writing the Access Controller's
-on-device profiles over **USB-C**, with **no PS5**. Verified end-to-end against real hardware
-(read, write, round-trip, restore) on macOS via both node-hid and WebHID.
+Protocol for reading and writing the Access Controller's on-device profiles over **USB-C**, with
+**no PS5**. Verified end-to-end against real hardware (read, write, round-trip, restore) on macOS
+via both node-hid and WebHID.
 
-Credit: the read/write sequence and profile layout were recovered from Jacek Fedoryński's
-client-side web editor (`code.js` / `crc.js` at <https://www.jfedor.org/ps-access/>). This
-document restates it with offsets confirmed against a live device, and notes where this
-implementation differs (it preserves the UUID/timestamp/stick-tuning bytes on round-trip).
+Credit: this work builds on the prior art of Jacek Fedoryński's client-side web editor
+(<https://www.jfedor.org/ps-access/>), which first made PC-side profile editing possible. The
+byte offsets and behaviour documented here were confirmed against a live device, and this note
+records where this implementation differs (it preserves the UUID/timestamp/stick-tuning bytes on
+round-trip).
 
 ## Device identity
 

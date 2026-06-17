@@ -10,8 +10,9 @@ and clone the 3 on-device profiles (button remapping, the built-in stick, expans
 yourself.
 
 > Verified end-to-end against real hardware (read / write / round-trip / restore) on macOS.
-> See [PROTOCOL.md](PROTOCOL.md) for the protocol. Credit to jfedor’s web editor
-> (<https://www.jfedor.org/ps-access/>), from which the protocol was recovered.
+> See [PROTOCOL.md](PROTOCOL.md) for the protocol. This project builds on the prior art of
+> Jacek Fedoryński’s web editor (<https://www.jfedor.org/ps-access/>) — credit and thanks to him
+> for first making PC-side profile editing possible.
 
 ## Requirements
 
@@ -89,7 +90,7 @@ web/classic.html + app.js classic form/controller editor
 web/monitor.html + monitor.js  standalone XMB-styled live input monitor
 web/hid-capture.html      input-report diagnostics / RE tool
 captures/                 profile backups (created on backup/auto-backup)
-reference/                upstream code.js / crc.js / index.html (source of the protocol)
+reference/                Jacek Fedoryński’s original web editor — kept for attribution / prior art
 PROTOCOL.md               protocol documentation
 ```
 
