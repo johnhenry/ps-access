@@ -2,11 +2,27 @@
 // ps-access — read/write PlayStation Access Controller profiles over USB-C (no PS5).
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { listControllers, openController, readProfileRaw, writeProfileRaw, setActiveProfile } from "./lib/hid-node.mjs";
 import {
   parseProfile, buildProfile, describeProfile, PROFILE_SIZE, PROFILE_COUNT,
   ACTION_BY_NAME, ACTIONS, STICK_BY_NAME, ORIENTATION_BY_NAME,
 } from "./web/access-protocol.mjs";
+import { PRESETS, fromFileText, decodeShare, shareURL } from "./web/profile-library.mjs";
+
+// node-hid is loaded lazily so offline commands (presets/share/show-share/help) work
+// without it installed. Device commands call loadHid() first (see the dispatcher).
+let _hid = null;
+async function loadHid() {
+  if (!_hid) {
+    try { _hid = await import("./lib/hid-node.mjs"); }
+    catch (e) { throw new Error(`this command needs the controller — run "npm install" first (${e.message || e})`); }
+  }
+  return _hid;
+}
+const listControllers = (...a) => _hid.listControllers(...a);
+const openController = (...a) => _hid.openController(...a);
+const readProfileRaw = (...a) => _hid.readProfileRaw(...a);
+const writeProfileRaw = (...a) => _hid.writeProfileRaw(...a);
+const setActiveProfile = (...a) => _hid.setActiveProfile(...a);
 
 const CAPTURES = new URL("./captures/", import.meta.url).pathname;
 
@@ -221,6 +237,31 @@ const COMMANDS = {
     }
   },
 
+  // List the built-in starting-point presets (shared with the web Library).
+  presets() {
+    console.log("Presets — apply as a starting point, then customize:");
+    for (const p of PRESETS) console.log(`  ${p.id.padEnd(18)} ${p.name}\n    ${p.description}`);
+    console.log(`\nUse one with:  share / show-share, or apply it in the web Library, then Save.`);
+  },
+
+  // Print a shareable link (and #p= code) for a profile in a backup file — works offline.
+  share(opts) {
+    const file = opts._[0];
+    if (!file) throw new Error("usage: share <backup.json> [slot 1..3]");
+    const slot = opts._[1] ? Number(opts._[1]) - 1 : 0;
+    const portable = fromFileText(readFileSync(file, "utf8"), slot);
+    console.log(shareURL(portable, "https://ps-access.johnhenry.me/"));
+  },
+
+  // Decode a share link/code and describe what it contains — works offline.
+  "show-share"(opts) {
+    const arg = opts._[0];
+    if (!arg) throw new Error("usage: show-share <code|url>");
+    const code = arg.includes("#p=") ? arg.split("#p=")[1] : arg;
+    const portable = decodeShare(code);
+    console.log(describeProfile({ uuid: "(shared profile)", buttons: portable.buttons, ports: portable.ports, name: portable.name }));
+  },
+
   help() {
     console.log(`ps-access — PlayStation Access Controller profile tool (USB-C, no PS5)
 
@@ -239,16 +280,23 @@ Commands:
                                   set 1 port1=cross
                                   set 1 "port0=left stick"
                                   set 1 orientation="stick on the right"
+  presets                       List built-in starting-point presets
+  share <backup.json> [slot]    Print a shareable link/code for a backed-up profile (offline)
+  show-share <code|url>         Decode + describe a share link/code (offline)
 
 Every write auto-backs-up first (captures/) and round-trip verifies.
 Actions: ${Object.values(ACTIONS).join(", ")}, left stick, right stick`);
   },
 };
 
+// Commands that never touch the controller — usable without node-hid installed.
+const OFFLINE = new Set(["presets", "share", "show-share", "help"]);
+
 const opts = parseArgs(process.argv.slice(2));
 const cmd = opts._.shift() || "help";
 const fn = COMMANDS[cmd] || COMMANDS.help;
 try {
+  if (!OFFLINE.has(cmd) && COMMANDS[cmd]) await loadHid();
   await fn(opts);
 } catch (e) {
   console.error("error:", e.message);
