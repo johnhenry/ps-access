@@ -4,12 +4,14 @@
   "description": "Read/write PlayStation Access Controller profiles from a PC (no PS5). CLI + WebHID tool.",
   "type": "module",
   "bin": {
-    "ps-access": "./cli.mjs"
+    "ps-access": "./cli.mjs",
+    "ps-access-bridge": "./bridge.mjs"
   },
   "scripts": {
     "start": "npx --yes serve -l 3000 .",
     "list": "node cli.mjs list",
-    "backup": "node cli.mjs backup"
+    "backup": "node cli.mjs backup",
+    "bridge": "node bridge.mjs"
   },
   "dependencies": {
     "node-hid": "^3.1.2"

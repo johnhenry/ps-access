@@ -53,9 +53,21 @@ Open **<http://localhost:3000/web/>** in Chrome/Edge.
 ### XMB view (`index.html`)
 
 A full-screen XrossMediaBar-style interface: a horizontal ribbon of blades
-(`Controllers · Profile 1 · 2 · 3 · Save · Monitor`, each profile rendered as a live
+(`Controllers · Profile 1 · 2 · 3 · Save · Library · Monitor`, each profile rendered as a live
 mini-controller), a vertical item list, and an enlarged "hero" render when you drill in. Edit
 button/stick/port mappings with horizontal value spinners, then save to the controller.
+
+The **Library** blade is for **sharing and presets** (all client-side, no account): apply a
+curated starting-point preset (one-handed, toggle-triggers, external-switch D-pad…), **export**
+a profile to a JSON file, **import** a file or a CLI backup, or **copy a share link** — a URL
+whose `#p=…` hash encodes the profile, auto-detected when someone opens it. After applying or
+importing, use **Save** to write it to the controller.
+
+**Accessibility:** the configurator is built to be used by the same people the controller is for.
+Every section/option/value change is announced to screen readers (a polite live region), it's
+fully keyboard- and controller-operable, the selected item has a color-independent focus ring,
+**?** opens a controls reference, and it honors `prefers-reduced-motion` (no animated wave),
+`prefers-contrast`, and Windows High Contrast / `forced-colors`.
 
 It's driven by the controller's **raw HID input report**, so it reads *physical* buttons
 regardless of remapping: tilt the **stick** to navigate, **center / stick-click = confirm**,
@@ -89,13 +101,49 @@ profiles on the controller while watching. (Also available as a standalone page,
 A developer tool that shows the live input report and logs which bits flip on each press —
 used to reverse-engineer the physical-button layout (see PROTOCOL.md).
 
+## PC input bridge (use the controller on any PC)
+
+Beyond editing PS5 profiles, you can use the Access Controller as a **general PC input device** —
+its stick and buttons driving keyboard/mouse or a virtual gamepad, so it controls *any* software,
+not just a PS5. The bridge reads the controller's live USB input and maps it through a small,
+platform-agnostic engine (`lib/bridge-core.mjs`) to a pluggable output **sink**.
+
+```bash
+node bridge.mjs --sink dry-run               # print mapped events, inject nothing (try it first)
+node bridge.mjs --sink xdotool               # stick -> arrow keys, buttons -> keys (X11; needs xdotool)
+node bridge.mjs --sink uinput                # virtual gamepad/keyboard via /dev/uinput (Linux)
+node bridge.mjs --config my-map.json         # custom mapping (see DEFAULT_MAPPING in bridge-core)
+node bridge.mjs --simulate frames.json --sink dry-run   # replay recorded frames, no hardware
+```
+
+- **xdotool** sink (X11): no native deps; set `--display :0` if `$DISPLAY` isn't set.
+- **uinput** sink (Linux, lowest latency): a stdlib-only Python helper creates the virtual device.
+  It needs access to `/dev/uinput` — run as root, or add a udev rule, e.g.:
+  ```
+  # /etc/udev/rules.d/99-uinput.rules
+  KERNEL=="uinput", GROUP="input", MODE="0660"   # then: add your user to the `input` group
+  ```
+- Mapping config example (`my-map.json`):
+  ```json
+  { "buttons": { "8": "space", "0": "mouse1" },
+    "stick": { "mode": "mouse" }, "mouse": { "speed": 22 } }
+  ```
+  `stick.mode` is `keys` (arrows/WASD), `mouse` (relative pointer), or `axis` (gamepad).
+
+> Verified with simulated input on Linux; on-hardware verification is pending a physical unit.
+
 ## Layout
 
 ```
 web/access-protocol.mjs   shared, I/O-free protocol (parse/build/CRC/enums) — used by both tools
+web/profile-library.mjs   shared, I/O-free profile sharing + preset library (used by the web tool)
 lib/hid-node.mjs          node-hid transport (Node CLI only)
-cli.mjs                   command-line tool
-web/index.html + xmb.js   XMB-style configurator (the web UI) + live Monitor blade, via hid-web.mjs
+lib/bridge-core.mjs       PC bridge: pure input->output mapping engine
+lib/bridge-sinks.mjs      PC bridge: output sinks (dry-run, xdotool, uinput)
+lib/uinput-helper.py      PC bridge: stdlib-only virtual device for the uinput sink
+cli.mjs                   command-line tool (profiles)
+bridge.mjs                command-line PC input bridge
+web/index.html + xmb.js   XMB-style configurator (the web UI) + Library + live Monitor, via hid-web.mjs
 web/controller-render.mjs shared controller SVG render + physical-input decode
 web/monitor.html + monitor.js  standalone XMB-styled live input monitor
 web/hid-capture.html      input-report diagnostics / RE tool
