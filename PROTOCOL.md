@@ -136,9 +136,10 @@ A port’s stick assignment is encoded in the UI as `100 + code` (101 = left sti
 ## Input report — live button & stick state (report id `0x01`)
 
 The controller streams a DualSense-style **input report** (report id `1`, ~250 Hz, 64 bytes
-incl. report id / 63 bytes of data). Sticks are near the front, motion sensors + a timestamp
-fill the tail (those bytes are volatile at idle). Reverse-engineered with `web/hid-capture.html`
-(connect → idle baseline → press one button at a time, watch which bits flip).
+incl. report id / 63 bytes of data). The left stick is at the front and a sequence counter ticks
+at byte 6; the last 8 bytes (55–62) are a volatile per-frame trailer (see *Unexposed* below).
+Reverse-engineered with `web/hid-capture.html` (connect → idle baseline → press one button at a
+time, watch which bits flip).
 
 **Key finding:** the report exposes **raw physical button state — independent of the profile
 remapping.** Pressing a button lights a fixed physical bit even when that button is mapped to
@@ -151,6 +152,7 @@ the report id). For `node-hid`, whose buffer includes the id at `[0]`, add 1.
 | data byte | bits | meaning |
 |---|---|---|
 | 0–1 | — | left stick X / Y (≈`0x80` centered; byte 0 jitters) |
+| 6 | — | sequence counter (increments once per report) |
 | ~7–8 | — | standard mapped-action bits (reflect the *mapped* action, not the physical button) |
 | **15** | **0–7** | **the 8 perimeter buttons** — one bit each (physical) |
 | **16** | **0, 1, 3** | **center button** (bit 0), **stick-click** (bit 1), **profile-switch button** (bit 3, `0x08`) |
@@ -172,6 +174,31 @@ controller (perimeter = back, center/stick-click = confirm) and lighting only th
 actually pressed. Note: WebHID `inputreport` and the browser **Gamepad API** can't both read the
 device reliably at once, and the Gamepad API only sees mapped actions — so physical-button work
 must go through the raw input report.
+
+### What the controller does *not* expose (verified)
+
+A round of probing (capture + correlation against the DualSense layout) ruled these out, which is
+useful to know before chasing them:
+
+- **No analog/pressure on the buttons.** The 8 perimeter buttons, center, and stick-click are
+  **digital only**. Holding a button harder changes nothing — the only bytes that react are the
+  physical bits (`byte 15`/`byte 16`) and the mapped-action bits (`bytes 7–8`), and all of those
+  are flat on/off. (The profile's "analog" button type `0x02` is for **expansion-port** inputs —
+  analog sticks/triggers in the 3.5 mm AUX jacks — not the built-in buttons.)
+- **No motion/IMU and no battery.** The gyro/accel region a DualSense fills with sensor noise is
+  constant/zero here (the device is meant to sit flat), and the DualSense battery byte reads `0`
+  (USB-powered, no battery to report).
+- **Bytes 55–62 are an opaque 8-byte trailer.** They randomize every frame even when the rest of
+  the payload is static, the values are not a forward timestamp, and they do **not** match a
+  standard DualSense CRC-32 (seed `0xA1` over the payload). Most likely a device timestamp and/or
+  signature over hidden internal state — not a decodable field.
+- **The profile light is firmware-controlled.** The device accepts output report `0x02` (31 data
+  bytes) without error but ignores it for lighting — the profile-button glow and its idle "wave"
+  animation are driven by firmware, not host-settable. (The standard DualSense player-LED/lightbar
+  bytes sit at offsets ~43–46, beyond this device's 31-byte output report, so the usual path
+  doesn't apply.)
+- **The profile blob has no hidden fields.** Every non-zero byte in the 956-byte profile falls
+  inside a documented field; the rest is reserved/zero.
 
 ## Implementation notes
 
