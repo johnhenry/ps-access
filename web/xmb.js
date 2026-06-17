@@ -9,6 +9,9 @@ import {
   readProfileRaw, writeProfileRaw, setActiveProfile,
 } from "./hid-web.mjs";
 import { SYMBOLS, symLabel, nameLabel, M, profileSVG, decodePhysical, PHYS_NAMES } from "./controller-render.mjs";
+import {
+  PRESETS, toPortable, applyPortable, shareURL, parseShareHash, toFileText, fromFileText,
+} from "./profile-library.mjs";
 
 const $ = (s) => document.querySelector(s);
 
@@ -27,6 +30,7 @@ let monitorArm = false;    // warning/confirm gate shown before entering the mon
 let warnSel = 0;           // highlighted option on the confirm gate (0 = Start, 1 = Cancel)
 let lastProfileSlot = 0;   // slot of the most recently focused profile blade — what the Save blade acts on
 let deviceProfile = null;  // active on-device profile slot (0-based, from input-report byte 39); null until known
+let pendingShare = null;   // a portable profile decoded from the URL hash, awaiting "Apply shared"
 
 const BLADES = [
   { key: "controllers", label: "Controllers", kind: "controllers" },
@@ -34,6 +38,7 @@ const BLADES = [
   { key: "p2", label: "Profile 2", kind: "profile", slot: 1 },
   { key: "p3", label: "Profile 3", kind: "profile", slot: 2 },
   { key: "save", label: "Save", kind: "save", glyph: "▣" },
+  { key: "library", label: "Library", kind: "library" },
   { key: "monitor", label: "Monitor", kind: "monitor" },
 ];
 
@@ -59,6 +64,12 @@ const SAVE_ICON = `<svg class="save-icon" viewBox="0 0 96 96" xmlns="http://www.
 // it reads instantly as activity/input).
 const MONITOR_ICON = `<svg class="mon-icon" viewBox="0 0 120 92" xmlns="http://www.w3.org/2000/svg">
   <polyline class="wave" points="12,52 30,52 40,30 52,68 64,22 76,52 86,44 108,44"/>
+</svg>`;
+
+// Stylized "library / share" icon (stacked cards) for the Library blade — same `.seg` style.
+const LIBRARY_ICON = `<svg class="save-icon" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <rect class="seg" x="22" y="30" width="40" height="44" rx="5"/>
+  <rect class="seg" x="34" y="22" width="40" height="44" rx="5"/>
 </svg>`;
 
 function activeProfile() {
@@ -178,6 +189,19 @@ function bladeItems(blade) {
       { key: "reload", label: "Reload from controller", action: "reload" },
     ];
   }
+  if (blade.kind === "library") {
+    const items = [];
+    if (pendingShare) {
+      items.push({ key: "applyshared", label: `Apply shared profile${pendingShare.name ? ` · ${pendingShare.name}` : ""} → Profile ${lastProfileSlot + 1}`, action: "applyShared" });
+    }
+    items.push(
+      { key: "export", label: `Export Profile ${lastProfileSlot + 1} (download file)`, action: "export" },
+      { key: "copylink", label: `Copy share link for Profile ${lastProfileSlot + 1}`, action: "copylink" },
+      { key: "import", label: `Import from file → Profile ${lastProfileSlot + 1}`, action: "import" },
+    );
+    PRESETS.forEach((p, i) => items.push({ key: "preset" + i, label: `Preset · ${p.name}`, action: "applyPreset", preset: i }));
+    return items;
+  }
   if (blade.kind === "monitor") {
     return [{ key: "openmon", label: "Open live monitor", action: "monitor" }];
   }
@@ -219,6 +243,7 @@ function render() {
       if (b.kind === "controllers") g.innerHTML = CONTROLLER_ICON;
       else if (b.kind === "save") g.innerHTML = SAVE_ICON;
       else if (b.kind === "monitor") g.innerHTML = MONITOR_ICON;
+      else if (b.kind === "library") g.innerHTML = LIBRARY_ICON;
       else g.textContent = b.glyph;
       icon.append(g);
     }
@@ -322,7 +347,97 @@ function activate() {
     case "monitor": armMonitor(); break;
     case "connect": connectOnce(); break;
     case "setActive": setActiveFor(BLADES[nav.col].slot); break;
+    case "export": exportProfile(); break;
+    case "copylink": copyShareLink(); break;
+    case "import": importProfile(); break;
+    case "applyPreset": applyPresetToCurrent(it.preset); break;
+    case "applyShared": applySharedToCurrent(); break;
   }
+}
+
+// ============================ library / sharing ============================
+function libProfile() {
+  return controllers[activeCtrl]?.profiles[lastProfileSlot] || null;
+}
+function libSlotName() { return `Profile ${lastProfileSlot + 1}`; }
+
+function exportProfile() {
+  const p = libProfile();
+  if (!p) { toast("Connect a controller first"); return; }
+  const base = (p.name || libSlotName()).replace(/[^\w.-]+/g, "_");
+  downloadText(`${base}.ps-access.json`, toFileText(toPortable(p)));
+  toast(`Exported ${libSlotName()}`, 2500);
+}
+
+async function copyShareLink() {
+  const p = libProfile();
+  if (!p) { toast("Connect a controller first"); return; }
+  const url = shareURL(toPortable(p));
+  const ok = await copyText(url);
+  toast(ok ? "Share link copied to clipboard" : "Couldn't copy — link is now in the address bar", 3500);
+  if (!ok) { try { location.hash = url.split("#")[1]; } catch { /* ignore */ } }
+}
+
+function importProfile() {
+  const p = libProfile();
+  if (!p) { toast("Connect a controller first"); return; }
+  pickFile(".json,.txt", (text) => {
+    try {
+      applyPortable(p, fromFileText(text, lastProfileSlot));
+      render();
+      toast(`Imported into ${libSlotName()} — Save to write it to the controller`, 4000);
+      blip(720);
+    } catch (e) { toast("Import failed: " + (e.message || e), 4000); }
+  });
+}
+
+function applyPresetToCurrent(index) {
+  const p = libProfile();
+  if (!p) { toast("Connect a controller first"); return; }
+  const preset = PRESETS[index];
+  if (!preset) return;
+  applyPortable(p, preset.portable);
+  render();
+  toast(`Applied "${preset.name}" to ${libSlotName()} — Save to keep it`, 4000);
+  blip(720);
+}
+
+function applySharedToCurrent() {
+  const p = libProfile();
+  if (!p) { toast("Connect a controller first"); return; }
+  if (!pendingShare) return;
+  applyPortable(p, pendingShare);
+  pendingShare = null;
+  try { history.replaceState(null, "", location.pathname + location.search); } catch { /* ignore */ }
+  render();
+  toast(`Applied shared profile to ${libSlotName()} — Save to keep it`, 4000);
+  blip(720);
+}
+
+function downloadText(filename, text) {
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
+function pickFile(accept, onText) {
+  const input = document.createElement("input");
+  input.type = "file"; input.accept = accept;
+  input.onchange = () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    const reader = new FileReader();
+    reader.onload = () => onText(String(reader.result));
+    reader.readAsText(f);
+  };
+  input.click();
 }
 
 // Switch the controller's active profile to this slot (like its profile button). The input
@@ -751,6 +866,10 @@ function init() {
   $("#mon-done").onclick = exitMonitor;
   $("#warn-start").onclick = confirmArm;
   $("#warn-cancel").onclick = cancelArm;
+  try {
+    pendingShare = parseShareHash(location.hash);
+    if (pendingShare) toast(`Shared profile "${pendingShare.name || "(unnamed)"}" detected — open Library ▸ to apply`, 6000);
+  } catch { /* ignore bad hash */ }
   render();
   load();
 }
