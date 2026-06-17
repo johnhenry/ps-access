@@ -2,7 +2,7 @@
 // to physical input, physical-button chips, the stick, and the raw input report.
 import { profileSVG, decodePhysical, PHYS_NAMES, M } from "./controller-render.mjs";
 import { hidSupported, grantedControllers, requestControllers, ensureOpen, readProfileRaw } from "./hid-web.mjs";
-import { parseProfile } from "../lib/access-protocol.mjs";
+import { parseProfile } from "./access-protocol.mjs";
 
 const $ = (s) => document.querySelector(s);
 let device = null, profile = null;

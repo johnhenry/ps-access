@@ -81,8 +81,8 @@ used to reverse-engineer the physical-button layout (see PROTOCOL.md).
 ## Layout
 
 ```
-lib/access-protocol.mjs   shared, I/O-free protocol (parse/build/CRC/enums) — used by both tools
-lib/hid-node.mjs          node-hid transport
+web/access-protocol.mjs   shared, I/O-free protocol (parse/build/CRC/enums) — used by both tools
+lib/hid-node.mjs          node-hid transport (Node CLI only)
 cli.mjs                   command-line tool
 web/index.html + xmb.js   XMB-style configurator (default UI) + live Monitor blade, via hid-web.mjs
 web/controller-render.mjs shared controller SVG render + physical-input decode

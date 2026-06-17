@@ -2,7 +2,7 @@
 import {
   VENDOR_ID, PRODUCT_ID, REPORT_ID_CMD, REPORT_ID_DATA, BT_ONLY_REPORT_ID,
   PROFILE_SIZE, PACKETS_PER_PROFILE, buildReadCommand, assembleProfile, buildWritePackets,
-} from "../lib/access-protocol.mjs";
+} from "./access-protocol.mjs";
 
 export function hidSupported() {
   return "hid" in navigator;

@@ -4,7 +4,7 @@ import {
   ACTIONS, STICKS, ORIENTATIONS, PROFILE_COUNT,
   STICK_DEFAULT_SENSITIVITY, STICK_DEFAULT_DEADZONE,
   parseProfile, buildProfile,
-} from "../lib/access-protocol.mjs";
+} from "./access-protocol.mjs";
 import {
   hidSupported, grantedControllers, requestControllers, ensureOpen,
   readProfileRaw, writeProfileRaw,

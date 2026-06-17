@@ -6,7 +6,7 @@ import { listControllers, openController, readProfileRaw, writeProfileRaw } from
 import {
   parseProfile, buildProfile, describeProfile, PROFILE_SIZE, PROFILE_COUNT,
   ACTION_BY_NAME, ACTIONS, STICK_BY_NAME, ORIENTATION_BY_NAME,
-} from "./lib/access-protocol.mjs";
+} from "./web/access-protocol.mjs";
 
 const CAPTURES = new URL("./captures/", import.meta.url).pathname;
 

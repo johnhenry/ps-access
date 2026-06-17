@@ -1,6 +1,6 @@
 // Shared controller rendering + physical-input decoding for the XMB configurator and the
 // input monitor. Pure (no DOM/IO) so any page can build a render and decode reports.
-import { ACTIONS } from "../lib/access-protocol.mjs";
+import { ACTIONS } from "./access-protocol.mjs";
 
 // Glyphs for actions with a recognizable symbol; others fall back to short text.
 export const SYMBOLS = { 1: "○", 2: "✕", 3: "△", 4: "□", 5: "▲", 6: "▼", 7: "◀", 8: "▶", 15: "☰", 18: "▭" };
