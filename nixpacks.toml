@@ -1,0 +1,10 @@
+# Deploy config: serve the static WebHID configurator (web/) only.
+# Override install so node-hid (native, CLI-only) is never built in the container.
+[phases.setup]
+nixPkgs = ["nodejs_22"]
+
+[phases.install]
+cmds = ["npm install serve@14"]
+
+[start]
+cmd = "./node_modules/.bin/serve web -l $PORT --no-clipboard"
