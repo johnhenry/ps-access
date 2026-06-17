@@ -1,0 +1,10 @@
+{
+  "headers": [
+    {
+      "source": "**/*.@(html|js|mjs|css)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    }
+  ]
+}
