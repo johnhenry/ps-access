@@ -177,8 +177,21 @@ function bladeItems(blade) {
 }
 
 // ============================ rendering ============================
+// Top-bar profile context (under the controller name) — always shows the current/last profile.
+function updateProfileTag() {
+  const el = $("#mon-prof");
+  if (!el) return;
+  const prof = controllers[activeCtrl]?.profiles[lastProfileSlot];
+  if (!prof) { el.innerHTML = ""; return; }
+  const st = prof.ports[0];
+  const orient = st.kind === "stick" ? st.orientation : 3;
+  el.innerHTML = `<b>Profile ${lastProfileSlot + 1}</b> · ` +
+    (prof.name ? `${prof.name} · ` : "") + ORIENTATIONS[orient];
+}
+
 function render() {
   if (BLADES[nav.col]?.kind === "profile") lastProfileSlot = BLADES[nav.col].slot;
+  updateProfileTag();
   const bladesEl = $("#blades");
   bladesEl.innerHTML = "";
   BLADES.forEach((b, i) => {
@@ -427,10 +440,7 @@ function enterMonitor() {
   const prof = controllers[activeCtrl].profiles[slot];
   monitorMode = true;
   $("#mon-render").innerHTML = profileSVG(prof);                 // profileSVG bakes in the orientation
-  const st = prof.ports[0];
-  const orient = st.kind === "stick" ? st.orientation : 3;
-  $("#mon-prof").innerHTML = `<b>Profile ${slot + 1}</b> · ` +
-    (prof.name ? `${prof.name} · ` : "") + ORIENTATIONS[orient];
+  updateProfileTag();                                            // top-bar already shows it, keep in sync
   if (!$("#mon-chips").children.length) buildMonChips();
   if (!$("#mon-raw").children.length) buildMonRaw();
   $("#monitor").classList.add("show");
@@ -441,7 +451,6 @@ function exitMonitor() {
   if (!monitorMode) return;
   monitorMode = false;
   $("#monitor").classList.remove("show");
-  $("#mon-prof").innerHTML = ""; // clear the topbar profile indicator
   $("#stage").style.display = "";
   $(".footer").style.display = "";
   blip(330);
