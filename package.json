@@ -1,7 +1,7 @@
 {
   "name": "ps-access",
   "version": "0.1.0",
-  "description": "Read/write PlayStation Access Controller profiles from a PC (no PS5). CLI + WebHID tool.",
+  "description": "Read/write PlayStation Access Controller profiles from a PC (no PS5). CLI + WebHID tool + PC input bridge.",
   "type": "module",
   "bin": {
     "ps-access": "./cli.mjs",
@@ -11,8 +11,41 @@
     "start": "npx --yes serve -l 3000 .",
     "list": "node cli.mjs list",
     "backup": "node cli.mjs backup",
-    "bridge": "node bridge.mjs"
+    "bridge": "node bridge.mjs",
+    "test": "node --test"
   },
+  "files": [
+    "cli.mjs",
+    "bridge.mjs",
+    "lib/",
+    "web/",
+    "PROTOCOL.md",
+    "README.md"
+  ],
+  "keywords": [
+    "playstation",
+    "access-controller",
+    "ps5",
+    "accessibility",
+    "adaptive-controller",
+    "webhid",
+    "hid",
+    "node-hid",
+    "remapping",
+    "assistive-technology"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnhenry/ps-access.git"
+  },
+  "homepage": "https://ps-access.johnhenry.me",
+  "bugs": {
+    "url": "https://github.com/johnhenry/ps-access/issues"
+  },
+  "author": "johnhenry",
   "dependencies": {
     "node-hid": "^3.1.2"
   },
