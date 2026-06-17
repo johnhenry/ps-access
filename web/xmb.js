@@ -678,7 +678,33 @@ function init() {
   // mark the controller disconnected if no input report has arrived recently (also fades the wave out)
   setInterval(() => { if (performance.now() - lastInputAt > 1500) { setGpStatus(false); waveConnected = false; } }, 800);
   if (navigator.hid) {
-    navigator.hid.addEventListener("disconnect", () => { waveConnected = false; updateDeviceStatus(); });
+    // Auto-recover on unplug/replug without a page refresh.
+    navigator.hid.addEventListener("disconnect", (e) => {
+      waveConnected = false;
+      const idx = controllers.findIndex((c) => c.device === e.device);
+      if (idx !== -1) {
+        e.device.removeEventListener("inputreport", onInputReport);
+        controllers.splice(idx, 1);
+        if (activeCtrl >= controllers.length) activeCtrl = Math.max(0, controllers.length - 1);
+        deviceProfile = null;
+        nav.drill = null;
+      }
+      updateDeviceStatus(); render();
+    });
+    let reconnecting = false;
+    navigator.hid.addEventListener("connect", async () => {
+      if (reconnecting) return;
+      reconnecting = true;
+      try {
+        const before = controllers.length;
+        for (let attempt = 0; attempt < 3; attempt++) {            // device may need a moment to expose its USB collection
+          try { await addDevices(await grantedControllers()); break; }
+          catch (err) { if (attempt === 2) throw err; await new Promise((r) => setTimeout(r, 300)); }
+        }
+        if (controllers.length > before) toast("Controller reconnected", 1800);
+      } catch (err) { toast("Reconnect failed: " + (err.message || err), 3500); }
+      finally { reconnecting = false; }
+    });
   }
   $("#mon-done").onclick = exitMonitor;
   $("#warn-start").onclick = confirmArm;
