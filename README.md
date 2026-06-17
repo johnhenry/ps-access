@@ -61,13 +61,18 @@ regardless of remapping: tilt the **stick** to navigate, **center / stick-click 
 **any perimeter button = back**, and pressing any physical button lights it up on every render.
 Keyboard works too (arrows / Enter / Backspace). A **✦ Classic** link opens the editor below.
 
+Under the controller name in the top bar, the **active on-device profile** is shown live (e.g.
+`Profile 3 · stick on the right`) — it reflects whichever profile is selected on the controller
+itself and **updates the moment you press the device's profile button**, independent of the UI
+cursor (decoded from input-report `byte 39`; see [PROTOCOL.md](PROTOCOL.md)).
+
 The **Monitor** blade opens a full-screen live input view (big controller render + physical-button
 chips + stick crosshair + the raw input report with the physical-button bytes highlighted). Because
 the controller is purely *observed* here — navigation is suspended so every button and the stick can
 be tested freely — opening it first shows a **confirm gate** warning that you'll need the **keyboard
-(Esc)** or the **Done** button to leave (the controller can't exit on its own). The render uses the
-profile you were last on, so it matches that profile's **orientation**, and the chosen profile is
-shown in the top bar under the controller name. (Also available as a standalone page, `monitor.html`.)
+(Esc)** or the **Done** button to leave (the controller can't exit on its own). The render follows
+the **active on-device profile**, matching its **orientation**, and re-renders if you switch
+profiles on the controller while watching. (Also available as a standalone page, `monitor.html`.)
 
 ### Classic editor (`classic.html`)
 

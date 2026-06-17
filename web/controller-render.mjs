@@ -66,12 +66,14 @@ export function profileSVG(profile, { focus = null } = {}) {
 export const PHYS_NAMES = ["1", "2", "3", "4", "5", "6", "7", "8", "Center", "Stick-click"];
 
 // Decode physical button + stick state from a raw input-report data view (report id excluded):
-// byte 15 bits 0-7 = perimeter 1-8; byte 16 bit 0 = center, bit 1 = stick-click; bytes 0/1 = stick X/Y.
+// byte 15 bits 0-7 = perimeter 1-8; byte 16 bit 0 = center, bit 1 = stick-click; bytes 0/1 = stick X/Y;
+// byte 16 bit 3 (0x08) = profile-switch button; byte 39 = active on-device profile (1-based).
 export function decodePhysical(data) {
   const buttons = new Set();
   for (let bit = 0; bit < 8; bit++) if (data[15] & (1 << bit)) buttons.add(bit);
   if (data[16] & 0x01) buttons.add(8);
   if (data[16] & 0x02) buttons.add(9);
   const dz = (v) => (Math.abs(v) < 0.16 ? 0 : v);
-  return { buttons, axes: [dz((data[0] - 128) / 128), dz((data[1] - 128) / 128)] };
+  const profile = data.length > 39 && data[39] >= 1 && data[39] <= 3 ? data[39] : 0; // 0 = unknown
+  return { buttons, axes: [dz((data[0] - 128) / 128), dz((data[1] - 128) / 128)], profile };
 }

@@ -25,6 +25,7 @@ let renaming = false;
 let monitorMode = false;   // full-screen live input monitor open
 let monitorArm = false;    // warning/confirm gate shown before entering the monitor
 let lastProfileSlot = 0;   // slot of the most recently focused profile blade — what the Save blade acts on
+let deviceProfile = null;  // active on-device profile slot (0-based, from input-report byte 39); null until known
 
 const BLADES = [
   { key: "controllers", label: "Controllers", kind: "controllers" },
@@ -177,15 +178,21 @@ function bladeItems(blade) {
 }
 
 // ============================ rendering ============================
-// Top-bar profile context (under the controller name) — always shows the current/last profile.
+// The profile slot the indicator/monitor reflect: the controller's *active* profile (set with the
+// device's profile button, read live from the input report) when known, else the focused UI profile.
+function shownProfileSlot() {
+  return deviceProfile ?? lastProfileSlot;
+}
+// Top-bar profile context (under the controller name) — shows the active on-device profile.
 function updateProfileTag() {
   const el = $("#mon-prof");
   if (!el) return;
-  const prof = controllers[activeCtrl]?.profiles[lastProfileSlot];
+  const slot = shownProfileSlot();
+  const prof = controllers[activeCtrl]?.profiles[slot];
   if (!prof) { el.innerHTML = ""; return; }
   const st = prof.ports[0];
   const orient = st.kind === "stick" ? st.orientation : 3;
-  el.innerHTML = `<b>Profile ${lastProfileSlot + 1}</b> · ` +
+  el.innerHTML = `<b>Profile ${slot + 1}</b> · ` +
     (prof.name ? `${prof.name} · ` : "") + ORIENTATIONS[orient];
 }
 
@@ -436,8 +443,7 @@ function confirmArm() {
 // matches that profile's orientation) and showing which profile is on screen.
 function enterMonitor() {
   if (!controllers[activeCtrl]) { toast("Connect a controller first"); return; }
-  const slot = lastProfileSlot;
-  const prof = controllers[activeCtrl].profiles[slot];
+  const prof = controllers[activeCtrl].profiles[shownProfileSlot()]; // the active on-device profile
   monitorMode = true;
   $("#mon-render").innerHTML = profileSVG(prof);                 // profileSVG bakes in the orientation
   updateProfileTag();                                            // top-bar already shows it, keep in sync
@@ -533,9 +539,16 @@ function onInputReport(e) {
   if (e.device !== controllers[activeCtrl]?.device) return;
   const d = new Uint8Array(e.data.buffer.slice(e.data.byteOffset, e.data.byteOffset + e.data.byteLength));
   lastInputAt = performance.now();
-  const { buttons, axes } = decodePhysical(d);
+  const { buttons, axes, profile } = decodePhysical(d);
   liveAxes = axes;
   phys = buttons;
+  // Track the controller's *active* profile (changed with the device's profile button). When it
+  // changes, refresh the top-bar indicator and, if the monitor is open, re-render it for that profile.
+  if (profile && profile - 1 !== deviceProfile) {
+    deviceProfile = profile - 1;
+    updateProfileTag();
+    if (monitorMode) $("#mon-render").innerHTML = profileSVG(controllers[activeCtrl].profiles[deviceProfile]);
+  }
   if (monitorMode) { updateMonitor(buttons, axes, d); setGpStatus(true); return; }
   if (monitorArm) { handleArmInput(buttons); setGpStatus(true); return; }
   handlePhysInput(buttons, axes);

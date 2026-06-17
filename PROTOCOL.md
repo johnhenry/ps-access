@@ -139,12 +139,19 @@ the report id). For `node-hid`, whose buffer includes the id at `[0]`, add 1.
 | 0–1 | — | left stick X / Y (≈`0x80` centered; byte 0 jitters) |
 | ~7–8 | — | standard mapped-action bits (reflect the *mapped* action, not the physical button) |
 | **15** | **0–7** | **the 8 perimeter buttons** — one bit each (physical) |
-| **16** | **0, 1** | **center button** and **stick-click** (physical) |
+| **16** | **0, 1, 3** | **center button** (bit 0), **stick-click** (bit 1), **profile-switch button** (bit 3, `0x08`) |
+| **39** | — | **active on-device profile** — `1`, `2`, or `3` (which profile the controller has selected) |
 
 Pinned via an ordered capture: **perimeter button _n_ (1–8) → `byte 15` bit _(n−1)_**
 (bit 0 = button 1 … bit 7 = button 8); **`byte 16` bit 0 = center button**; **`byte 16` bit 1 =
 stick-click**. So all 10 physical inputs are readable directly from `byte 15` (bits 0–7) and
 `byte 16` (bits 0–1).
+
+**Active profile.** `byte 39` holds the profile the controller currently has active (`1`–`3`),
+and `byte 16` bit 3 (`0x08`) pulses while the on-device **profile-switch button** is held. This
+lets a PC-side tool show, and react to, which profile the user has selected on the controller —
+without a PS5. Found by capturing the report while cycling the profile button: `byte 39` stepped
+`3 → 1 → 2 → 3` in lockstep with each press, while all other low-cardinality bytes stayed put.
 
 This enables physical-button features regardless of mapping — e.g. navigating a UI with the
 controller (perimeter = back, center/stick-click = confirm) and lighting only the button
