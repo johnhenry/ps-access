@@ -161,23 +161,29 @@
   #mon-prof b { color: var(--accent); font-weight: 500; }
 
   /* warning / confirm gate before entering live monitor */
-  #mon-warn { position: fixed; inset: 0; z-index: 8; display: none; place-items: center;
-    background: rgba(3,5,9,.6); backdrop-filter: blur(3px); }
-  #mon-warn.show { display: grid; }
-  #mon-warn .warn-card { width: min(460px, 88vw); background: var(--glass); border: 1px solid rgba(255,255,255,.12);
-    border-radius: 18px; padding: 26px 28px; box-shadow: 0 24px 80px rgba(0,0,0,.6); }
-  #mon-warn h2 { margin: 0 0 12px; font-size: 19px; font-weight: 400; color: var(--ink); }
-  #mon-warn p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: var(--dim); }
-  #mon-warn p b { color: var(--ink); font-weight: 500; }
-  #mon-warn .warn-note { background: rgba(255,205,94,.1); border: 1px solid rgba(255,205,94,.32); border-radius: 11px;
-    padding: 11px 13px; color: #ffdf9b; }
-  #mon-warn .warn-note b { color: #fff; }
-  #mon-warn .warn-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
-  #mon-warn button { font: inherit; font-size: 14px; padding: 9px 18px; border-radius: 10px; cursor: pointer; }
-  #warn-cancel { background: transparent; color: var(--dim); border: 1px solid rgba(255,255,255,.18); }
-  #warn-cancel:hover { color: var(--ink); border-color: var(--accent); }
-  #warn-start { background: var(--accent2); color: #fff; border: 1px solid var(--accent); }
-  #warn-start:hover { filter: brightness(1.1); }
+  /* Full-screen PS3-style system dialog (the wave ribbon shows through behind it). */
+  #mon-warn { position: fixed; inset: 0; z-index: 8; display: none;
+    background: radial-gradient(135% 105% at 50% 30%, rgba(3,6,11,.46) 0%, rgba(1,3,7,.84) 66%, rgba(0,0,0,.93) 100%); }
+  #mon-warn.show { display: block; }
+  #mon-warn .warn-body { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 20px; text-align: center; padding: 0 24px; }
+  #mon-warn .warn-eyebrow { display: flex; align-items: center; gap: 11px; font-size: 12px; letter-spacing: .24em;
+    text-transform: uppercase; color: var(--accent); font-weight: 400; }
+  #mon-warn .warn-eyebrow svg { width: 28px; height: 21px; }
+  #mon-warn .warn-eyebrow .wv { fill: none; stroke: var(--accent); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+  #mon-warn h2 { margin: 0; font-size: clamp(24px, 3.4vw, 34px); font-weight: 200; letter-spacing: .01em; color: #fff; }
+  #mon-warn .warn-sub { margin: 0; max-width: 560px; font-size: 14.5px; line-height: 1.6; color: var(--dim); font-weight: 300; }
+  #mon-warn .warn-opts { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+  #mon-warn .warn-opt { font: inherit; font-size: 18px; font-weight: 300; color: var(--dim); background: transparent;
+    border: 0; padding: 12px 48px; border-radius: 8px; cursor: pointer; letter-spacing: .015em; position: relative;
+    transition: color .12s, background .12s; }
+  #mon-warn .warn-opt:hover { color: var(--ink); }
+  #mon-warn .warn-opt.sel { color: #fff;
+    background: linear-gradient(90deg, rgba(111,168,255,0) 0%, rgba(111,168,255,.2) 50%, rgba(111,168,255,0) 100%); }
+  #mon-warn .warn-opt.sel::before { content: "▸"; position: absolute; left: 22px; color: var(--accent); font-size: 14px; }
+  #mon-warn .warn-foot { position: absolute; left: 0; right: 0; bottom: 30px; text-align: center; padding: 0 24px;
+    font-size: 12.5px; line-height: 1.55; color: var(--dim); font-weight: 300; }
+  #mon-warn .warn-foot b { color: #ffdf9b; font-weight: 500; }
 </style>
 </head>
 <body>
@@ -222,15 +228,16 @@
   </div>
 
   <div id="mon-warn">
-    <div class="warn-card">
-      <h2>Start live monitor?</h2>
-      <p>The controller is <b>only observed</b> here — XMB navigation pauses so you can press every button and fully deflect the stick without moving the menu.</p>
-      <p class="warn-note">⚠ To exit you'll need the <b>keyboard</b> (press <b>Esc</b>) or a click on <b>Done</b>. The controller itself can't leave this view.</p>
-      <div class="warn-actions">
-        <button id="warn-cancel">Cancel</button>
-        <button id="warn-start">Start monitoring</button>
+    <div class="warn-body">
+      <div class="warn-eyebrow"><svg viewBox="0 0 120 92" aria-hidden="true"><polyline class="wv" points="12,52 30,52 40,30 52,68 64,22 76,52 86,44 108,44"/></svg> Live Input Monitor</div>
+      <h2>Start the live monitor?</h2>
+      <p class="warn-sub">The controller is only observed here — menu navigation pauses so you can press every button and fully move the stick without scrolling the bar.</p>
+      <div class="warn-opts">
+        <button class="warn-opt sel" id="warn-start" data-i="0">Start monitoring</button>
+        <button class="warn-opt" id="warn-cancel" data-i="1">Cancel</button>
       </div>
     </div>
+    <div class="warn-foot">To leave the monitor you'll need the <b>keyboard</b> — press <b>Esc</b> — or click <b>Done</b>. The controller can't exit this view on its own.</div>
   </div>
 
   <div class="footer">

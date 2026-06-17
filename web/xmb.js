@@ -24,6 +24,7 @@ let lastInputAt = 0;
 let renaming = false;
 let monitorMode = false;   // full-screen live input monitor open
 let monitorArm = false;    // warning/confirm gate shown before entering the monitor
+let warnSel = 0;           // highlighted option on the confirm gate (0 = Start, 1 = Cancel)
 let lastProfileSlot = 0;   // slot of the most recently focused profile blade — what the Save blade acts on
 let deviceProfile = null;  // active on-device profile slot (0-based, from input-report byte 39); null until known
 
@@ -430,26 +431,35 @@ function buildMonRaw() {
   for (let i = 0; i < 63; i++) h += `<div class="b${i === 15 || i === 16 ? " btn" : ""}" data-i="${i}">00</div>`;
   $("#mon-raw").innerHTML = h;
 }
-// Step 1: warn the user that the controller can't exit this view (Esc / Done only),
-// and let them back out. Operable by keyboard (Enter/Esc), controller (confirm/back), or mouse.
+// Step 1: a PS3-style confirm gate warning that the controller can't exit this view (Esc / Done
+// only). A navigable two-option list — Start / Cancel — operable by keyboard (↑↓ + Enter / Esc),
+// controller (stick = move, confirm = pick, any perimeter = cancel), or mouse.
+function renderWarnSel() {
+  for (const o of document.querySelectorAll("#mon-warn .warn-opt")) o.classList.toggle("sel", +o.dataset.i === warnSel);
+}
 function armMonitor() {
   if (!controllers[activeCtrl]) { toast("Connect a controller first"); return; }
   monitorArm = true;
-  inputEdge.confirm = true; inputEdge.back = true; // swallow the press that opened this gate
+  warnSel = 0; renderWarnSel();
+  inputEdge.confirm = true; inputEdge.back = true; inputEdge.armDir = true; // swallow the opening press
   $("#mon-warn").classList.add("show");
+  $("#stage").style.display = "none"; $(".footer").style.display = "none"; // clear backdrop -> wave ribbon shows
 }
 function cancelArm() {
   if (!monitorArm) return;
   monitorArm = false;
   $("#mon-warn").classList.remove("show");
+  $("#stage").style.display = ""; $(".footer").style.display = "";
   blip(330);
 }
 function confirmArm() {
   if (!monitorArm) return;
   monitorArm = false;
   $("#mon-warn").classList.remove("show");
-  enterMonitor();
+  enterMonitor(); // keeps the stage/footer hidden, shows the monitor
 }
+// Activate whichever option is highlighted (used by keyboard Enter and controller confirm).
+function pickArm() { warnSel === 0 ? confirmArm() : cancelArm(); }
 // Step 2: enter the live monitor, rendering the *chosen* profile (so the controller image
 // matches that profile's orientation) and showing which profile is on screen.
 function enterMonitor() {
@@ -525,7 +535,8 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 window.addEventListener("keydown", (e) => {
   if (monitorArm) {
-    if (e.key === "Enter") { confirmArm(); e.preventDefault(); }
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") { warnSel = warnSel ? 0 : 1; renderWarnSel(); blip(440); e.preventDefault(); }
+    else if (e.key === "Enter") { pickArm(); e.preventDefault(); }
     else if (e.key === "Escape" || e.key === "Backspace") { cancelArm(); e.preventDefault(); }
     return;
   }
@@ -563,7 +574,7 @@ function onInputReport(e) {
     if (monitorMode) $("#mon-render").innerHTML = profileSVG(controllers[activeCtrl].profiles[deviceProfile]);
   }
   if (monitorMode) { updateMonitor(buttons, axes, d); setGpStatus(true); return; }
-  if (monitorArm) { handleArmInput(buttons); setGpStatus(true); return; }
+  if (monitorArm) { handleArmInput(buttons, axes); setGpStatus(true); return; }
   handlePhysInput(buttons, axes);
   updateLive();
   setGpStatus(true);
@@ -592,11 +603,15 @@ function handlePhysInput(buttons, axes) {
   inputEdge.back = wantBack;
 }
 
-// On the warning gate, confirm (center/stick-click) starts; back (any perimeter) cancels.
-function handleArmInput(buttons) {
+// On the gate: stick up/down moves the highlight, confirm (center/stick-click) picks it,
+// any perimeter button cancels outright.
+function handleArmInput(buttons, axes) {
+  const dir = axes[1] < -0.5 ? -1 : axes[1] > 0.5 ? 1 : 0;       // up/down on the list
+  if (dir && !inputEdge.armDir) { warnSel = warnSel ? 0 : 1; renderWarnSel(); blip(440); }
+  inputEdge.armDir = dir !== 0;
   const confirm = buttons.has(8) || buttons.has(9);
   const wantBack = [0, 1, 2, 3, 4, 5, 6, 7].some((i) => buttons.has(i));
-  if (confirm && !inputEdge.confirm) confirmArm();
+  if (confirm && !inputEdge.confirm) pickArm();
   inputEdge.confirm = confirm;
   if (wantBack && !inputEdge.back) cancelArm();
   inputEdge.back = wantBack;
