@@ -62,9 +62,12 @@ regardless of remapping: tilt the **stick** to navigate, **center / stick-click 
 Keyboard works too (arrows / Enter / Backspace). A **✦ Classic** link opens the editor below.
 
 The **Monitor** blade opens a full-screen live input view (big controller render + physical-button
-chips + stick crosshair + the raw input report with the physical-button bytes highlighted). Here
-the controller is purely *observed* — navigation is suspended so every button and the stick can be
-tested freely; exit with **Esc** or **Done**. (Also available as a standalone page, `monitor.html`.)
+chips + stick crosshair + the raw input report with the physical-button bytes highlighted). Because
+the controller is purely *observed* here — navigation is suspended so every button and the stick can
+be tested freely — opening it first shows a **confirm gate** warning that you'll need the **keyboard
+(Esc)** or the **Done** button to leave (the controller can't exit on its own). The render uses the
+profile you were last on, so it matches that profile's **orientation**, and the chosen profile is
+shown in the top bar under the controller name. (Also available as a standalone page, `monitor.html`.)
 
 ### Classic editor (`classic.html`)
 

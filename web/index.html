@@ -25,8 +25,8 @@
   .topbar { position: fixed; z-index: 5; top: 0; left: 0; right: 0; display: flex; align-items: center;
     gap: 16px; padding: 16px 26px; font-size: 13px; color: var(--dim); }
   .topbar .clock { margin-left: auto; letter-spacing: .04em; }
-  .topbar .device { display: inline-flex; align-items: center; gap: 8px; }
-  .topbar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .topbar .device { display: inline-flex; align-items: flex-start; gap: 8px; }
+  .topbar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); margin-top: 5px; }
   .topbar a { color: var(--dim); text-decoration: none; border: 1px solid rgba(255,255,255,.14);
     padding: 4px 10px; border-radius: 999px; }
   .topbar a:hover { color: var(--ink); border-color: var(--accent); }
@@ -155,6 +155,29 @@
   #mon-done { position: absolute; top: -2px; right: 0; font: inherit; font-size: 13px; color: var(--dim);
     background: var(--glass); border: 1px solid rgba(255,255,255,.14); padding: 5px 12px; border-radius: 999px; cursor: pointer; z-index: 7; }
   #mon-done:hover { color: var(--ink); border-color: var(--accent); }
+  .devcol { display: inline-flex; flex-direction: column; line-height: 1.25; }
+  #mon-prof { font-size: 11px; color: var(--dim); letter-spacing: .02em; }
+  #mon-prof:empty { display: none; }
+  #mon-prof b { color: var(--accent); font-weight: 500; }
+
+  /* warning / confirm gate before entering live monitor */
+  #mon-warn { position: fixed; inset: 0; z-index: 8; display: none; place-items: center;
+    background: rgba(3,5,9,.6); backdrop-filter: blur(3px); }
+  #mon-warn.show { display: grid; }
+  #mon-warn .warn-card { width: min(460px, 88vw); background: var(--glass); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 18px; padding: 26px 28px; box-shadow: 0 24px 80px rgba(0,0,0,.6); }
+  #mon-warn h2 { margin: 0 0 12px; font-size: 19px; font-weight: 400; color: var(--ink); }
+  #mon-warn p { margin: 0 0 12px; font-size: 14px; line-height: 1.5; color: var(--dim); }
+  #mon-warn p b { color: var(--ink); font-weight: 500; }
+  #mon-warn .warn-note { background: rgba(255,205,94,.1); border: 1px solid rgba(255,205,94,.32); border-radius: 11px;
+    padding: 11px 13px; color: #ffdf9b; }
+  #mon-warn .warn-note b { color: #fff; }
+  #mon-warn .warn-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  #mon-warn button { font: inherit; font-size: 14px; padding: 9px 18px; border-radius: 10px; cursor: pointer; }
+  #warn-cancel { background: transparent; color: var(--dim); border: 1px solid rgba(255,255,255,.18); }
+  #warn-cancel:hover { color: var(--ink); border-color: var(--accent); }
+  #warn-start { background: var(--accent2); color: #fff; border: 1px solid var(--accent); }
+  #warn-start:hover { filter: brightness(1.1); }
 </style>
 </head>
 <body>
@@ -162,7 +185,7 @@
   <div id="vignette"></div>
 
   <div class="topbar">
-    <span class="device"><span class="dot" id="dev-dot"></span><span id="dev-name">No controller</span></span>
+    <span class="device"><span class="dot" id="dev-dot"></span><span class="devcol"><span id="dev-name">No controller</span><span id="mon-prof"></span></span></span>
     <span id="crumb"></span>
     <span class="clock" id="clock"></span>
     <a href="./classic.html" id="exit">Classic ▸</a>
@@ -195,6 +218,18 @@
           <div id="mon-raw"></div>
           <div class="legend" style="font-size:11px;color:var(--dim);margin-top:6px">outlined = <b style="color:var(--accent)">byte 15</b> (perimeter) &amp; <b style="color:var(--accent)">byte 16</b> (center / stick-click)</div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="mon-warn">
+    <div class="warn-card">
+      <h2>Start live monitor?</h2>
+      <p>The controller is <b>only observed</b> here — XMB navigation pauses so you can press every button and fully deflect the stick without moving the menu.</p>
+      <p class="warn-note">⚠ To exit you'll need the <b>keyboard</b> (press <b>Esc</b>) or a click on <b>Done</b>. The controller itself can't leave this view.</p>
+      <div class="warn-actions">
+        <button id="warn-cancel">Cancel</button>
+        <button id="warn-start">Start monitoring</button>
       </div>
     </div>
   </div>

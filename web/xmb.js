@@ -23,6 +23,7 @@ let liveAxes = [0, 0];     // physical stick, -1..1
 let lastInputAt = 0;
 let renaming = false;
 let monitorMode = false;   // full-screen live input monitor open
+let monitorArm = false;    // warning/confirm gate shown before entering the monitor
 let lastProfileSlot = 0;   // slot of the most recently focused profile blade — what the Save blade acts on
 
 const BLADES = [
@@ -291,7 +292,7 @@ function activate() {
     case "save": saveProfileFor(BLADES[nav.col].kind === "profile" ? BLADES[nav.col].slot : lastProfileSlot); break;
     case "saveAll": saveAll(); break;
     case "reload": reloadFromDevice(); break;
-    case "monitor": enterMonitor(); break;
+    case "monitor": armMonitor(); break;
   }
 }
 
@@ -398,10 +399,38 @@ function buildMonRaw() {
   for (let i = 0; i < 63; i++) h += `<div class="b${i === 15 || i === 16 ? " btn" : ""}" data-i="${i}">00</div>`;
   $("#mon-raw").innerHTML = h;
 }
+// Step 1: warn the user that the controller can't exit this view (Esc / Done only),
+// and let them back out. Operable by keyboard (Enter/Esc), controller (confirm/back), or mouse.
+function armMonitor() {
+  if (!controllers[activeCtrl]) { toast("Connect a controller first"); return; }
+  monitorArm = true;
+  inputEdge.confirm = true; inputEdge.back = true; // swallow the press that opened this gate
+  $("#mon-warn").classList.add("show");
+}
+function cancelArm() {
+  if (!monitorArm) return;
+  monitorArm = false;
+  $("#mon-warn").classList.remove("show");
+  blip(330);
+}
+function confirmArm() {
+  if (!monitorArm) return;
+  monitorArm = false;
+  $("#mon-warn").classList.remove("show");
+  enterMonitor();
+}
+// Step 2: enter the live monitor, rendering the *chosen* profile (so the controller image
+// matches that profile's orientation) and showing which profile is on screen.
 function enterMonitor() {
   if (!controllers[activeCtrl]) { toast("Connect a controller first"); return; }
+  const slot = lastProfileSlot;
+  const prof = controllers[activeCtrl].profiles[slot];
   monitorMode = true;
-  $("#mon-render").innerHTML = profileSVG(controllers[activeCtrl].profiles[0]);
+  $("#mon-render").innerHTML = profileSVG(prof);                 // profileSVG bakes in the orientation
+  const st = prof.ports[0];
+  const orient = st.kind === "stick" ? st.orientation : 3;
+  $("#mon-prof").innerHTML = `<b>Profile ${slot + 1}</b> · ` +
+    (prof.name ? `${prof.name} · ` : "") + ORIENTATIONS[orient];
   if (!$("#mon-chips").children.length) buildMonChips();
   if (!$("#mon-raw").children.length) buildMonRaw();
   $("#monitor").classList.add("show");
@@ -412,6 +441,7 @@ function exitMonitor() {
   if (!monitorMode) return;
   monitorMode = false;
   $("#monitor").classList.remove("show");
+  $("#mon-prof").innerHTML = ""; // clear the topbar profile indicator
   $("#stage").style.display = "";
   $(".footer").style.display = "";
   blip(330);
@@ -468,6 +498,11 @@ function back() {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 window.addEventListener("keydown", (e) => {
+  if (monitorArm) {
+    if (e.key === "Enter") { confirmArm(); e.preventDefault(); }
+    else if (e.key === "Escape" || e.key === "Backspace") { cancelArm(); e.preventDefault(); }
+    return;
+  }
   if (monitorMode) { if (e.key === "Escape" || e.key === "Backspace") { exitMonitor(); e.preventDefault(); } return; }
   if (renaming) return;
   const k = e.key;
@@ -493,6 +528,7 @@ function onInputReport(e) {
   liveAxes = axes;
   phys = buttons;
   if (monitorMode) { updateMonitor(buttons, axes, d); setGpStatus(true); return; }
+  if (monitorArm) { handleArmInput(buttons); setGpStatus(true); return; }
   handlePhysInput(buttons, axes);
   updateLive();
   setGpStatus(true);
@@ -518,6 +554,16 @@ function handlePhysInput(buttons, axes) {
   if (confirm && !inputEdge.confirm && !nav.drill) activate();
   inputEdge.confirm = confirm;
   if (wantBack && !inputEdge.back) back();
+  inputEdge.back = wantBack;
+}
+
+// On the warning gate, confirm (center/stick-click) starts; back (any perimeter) cancels.
+function handleArmInput(buttons) {
+  const confirm = buttons.has(8) || buttons.has(9);
+  const wantBack = [0, 1, 2, 3, 4, 5, 6, 7].some((i) => buttons.has(i));
+  if (confirm && !inputEdge.confirm) confirmArm();
+  inputEdge.confirm = confirm;
+  if (wantBack && !inputEdge.back) cancelArm();
   inputEdge.back = wantBack;
 }
 
@@ -597,6 +643,8 @@ function init() {
     navigator.hid.addEventListener("disconnect", () => { /* keep simple: status refresh */ updateDeviceStatus(); });
   }
   $("#mon-done").onclick = exitMonitor;
+  $("#warn-start").onclick = confirmArm;
+  $("#warn-cancel").onclick = cancelArm;
   render();
   load();
 }
