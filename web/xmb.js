@@ -434,7 +434,10 @@ function activate() {
   const it = items[nav.row];
   if (!it) return;
   blip(660);
-  if (it.drill) { nav.drill = { key: it.key, index: 0 }; render(); return; }
+  if (it.drill) {
+    if (!activeProfile()) { toast("Connect a controller to edit a profile (the Key Bridge & Library work without one)"); return; }
+    nav.drill = { key: it.key, index: 0 }; render(); return;
+  }
   switch (it.action) {
     case "selectCtrl": activeCtrl = it.ctrl; nav.col = 1; nav.row = 0; render(); toast("Controller " + (it.ctrl + 1)); break;
     case "rename": startRename(); break;

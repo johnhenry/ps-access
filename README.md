@@ -37,7 +37,13 @@ node cli.mjs set 1 "port0=left stick"    # built-in stick assignment
 node cli.mjs set 1 orientation="stick on the right"
 node cli.mjs write-profile 2 captures/backup-....json
 node cli.mjs restore captures/backup-....json
+node cli.mjs apply profile.json 1        # apply a web-app export / share code / URL / preset id to a slot
 ```
+
+`apply` is the bridge between the web tool and the CLI: feed it a **profile JSON exported from the
+web Library**, a **share link/code**, or a built-in **preset id** (`ps-access presets`), and it
+writes that mapping to a slot on the controller (reading the current profile first so uuid and
+unmodeled fields survive, then round-trip verifying).
 
 - `--device <index|path>` targets a specific controller when several are connected.
 - **Every write auto-backs-up first** to `captures/` and round-trip re-reads to verify.

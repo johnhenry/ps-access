@@ -6,7 +6,7 @@ import {
   parseProfile, buildProfile, describeProfile, PROFILE_SIZE, PROFILE_COUNT,
   ACTION_BY_NAME, ACTIONS, STICK_BY_NAME, ORIENTATION_BY_NAME,
 } from "./web/access-protocol.mjs";
-import { PRESETS, fromFileText, decodeShare, shareURL } from "./web/profile-library.mjs";
+import { PRESETS, presetById, fromFileText, applyPortable, decodeShare, shareURL } from "./web/profile-library.mjs";
 
 // node-hid is loaded lazily so offline commands (presets/share/show-share/help) work
 // without it installed. Device commands call loadHid() first (see the dispatcher).
@@ -95,6 +95,15 @@ function resolveAction(name) {
   if (n in STICK_BY_NAME) return { kind: "stick", code: STICK_BY_NAME[n] };
   if (/^\d+$/.test(n)) return { kind: "action", code: Number(n) };
   throw new Error(`unknown action "${name}". Try: ${Object.values(ACTIONS).join(", ")}, left stick, right stick`);
+}
+
+// Resolve a portable profile from a preset id, a file path (web export / backup), or a share code/URL.
+function resolvePortable(src, slotIdx) {
+  const preset = presetById(src);
+  if (preset) return preset.portable;
+  if (existsSync(src)) return fromFileText(readFileSync(src, "utf8"), slotIdx);
+  const code = src.includes("#p=") ? src.split("#p=")[1] : src; // share URL or bare code
+  return fromFileText(code, slotIdx);
 }
 
 const COMMANDS = {
@@ -237,6 +246,31 @@ const COMMANDS = {
     }
   },
 
+  // Apply a portable profile (web Library export / share code / URL / preset id) onto a slot:
+  // reads the current profile as a base (so uuid + unmodeled fields survive), applies the
+  // mapping, writes it back, and verifies.
+  apply(opts) {
+    const src = opts._[0];
+    const slot = Number(opts._[1]);
+    if (!src || !(slot >= 1 && slot <= PROFILE_COUNT)) {
+      throw new Error("usage: apply <file.json | share-code | url | preset-id> <1..3>");
+    }
+    const portable = resolvePortable(src, slot - 1);
+    const { device, info } = openController(opts.device ?? 0);
+    try {
+      const bk = autoBackup(device, `dev${info.index}-pre-apply`);
+      console.log(`(auto-backup -> ${bk})`);
+      const base = parseProfile(readProfileRaw(device, slot));
+      applyPortable(base, portable);
+      writeProfileRaw(device, slot, buildProfile(base, { now: Date.now() }));
+      const back = parseProfile(readProfileRaw(device, slot));
+      console.log(`Applied ${portable.name ? `"${portable.name}"` : "profile"} to slot ${slot} on controller [${info.index}].`);
+      console.log(describeProfile(back));
+    } finally {
+      device.close();
+    }
+  },
+
   // List the built-in starting-point presets (shared with the web Library).
   presets() {
     console.log("Presets — apply as a starting point, then customize:");
@@ -275,6 +309,7 @@ Commands:
   backup [--out file]           Save all 3 profiles to captures/ (raw + decoded)
   restore <backup.json>         Write all 3 profiles back from a backup
   write-profile <1..3> <file>   Write one profile from a backup/hex/binary file
+  apply <src> <1..3>            Apply a web export / share code / URL / preset id to a slot
   set <1..3> <target>=<action>  Edit one mapping, e.g.:
                                   set 1 button5=triangle
                                   set 1 port1=cross
