@@ -1,6 +1,6 @@
 {
   "name": "ps-access",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Read/write PlayStation Access Controller profiles from a PC (no PS5). CLI + WebHID tool + PC input bridge.",
   "type": "module",
   "bin": {
