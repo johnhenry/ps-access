@@ -885,28 +885,48 @@ function closeHelp() {
 // Nav scheme (per design): center/stick-click = confirm; any perimeter button = back; stick = directions.
 const inputEdge = {};
 let dirRepeatAt = 0;
+// Latest decoded physical state per connected controller. Navigation/highlighting is driven by the
+// *union* of all of them (either controller can move the cursor, confirm, back), while the
+// active-profile indicator, wave tint and monitor follow the controller being edited (activeCtrl).
+const ctrlState = new Map(); // device -> { buttons:Set, axes:[x,y] }
+function mergedInput() {
+  const buttons = new Set();
+  let axes = [0, 0], best = 0;
+  for (const c of controllers) {
+    const st = ctrlState.get(c.device);
+    if (!st) continue;
+    for (const b of st.buttons) buttons.add(b);
+    const mag = Math.abs(st.axes[0]) + Math.abs(st.axes[1]); // whichever stick is pushed furthest steers
+    if (mag > best) { best = mag; axes = st.axes; }
+  }
+  return { buttons, axes };
+}
 function onInputReport(e) {
-  if (e.device !== controllers[activeCtrl]?.device) return;
+  if (!controllers.some((c) => c.device === e.device)) return; // ignore reports from a device mid-add
   const d = new Uint8Array(e.data.buffer.slice(e.data.byteOffset, e.data.byteOffset + e.data.byteLength));
   lastInputAt = performance.now();
   waveConnected = true; // a report is streaming -> the wave is visible
   const { buttons, axes, profile } = decodePhysical(d);
-  liveAxes = axes;
-  phys = buttons;
-  // Track the controller's *active* profile (changed with the device's profile button). When it
-  // changes, refresh the top-bar indicator and, if the monitor is open, re-render it for that profile.
-  if (profile && profile - 1 !== deviceProfile) {
+  ctrlState.set(e.device, { buttons, axes });
+  const isActive = e.device === controllers[activeCtrl]?.device;
+  // Active-profile tracking is per-device — only the *edited* controller's profile drives the
+  // indicator/wave/monitor. (Refresh the top bar, wave and "✓ Active" marker when it changes.)
+  if (isActive && profile && profile - 1 !== deviceProfile) {
     deviceProfile = profile - 1;
     updateProfileTag();
-    setWaveProfile(deviceProfile); // fade the wave's leading curves to match the active profile
+    setWaveProfile(deviceProfile);
     if (monitorMode) $("#mon-render").innerHTML = profileSVG(controllers[activeCtrl].profiles[deviceProfile]);
-    else if (!monitorArm && !nav.drill) render(); // refresh the "✓ Active on controller" marker
+    else if (!monitorArm && !nav.drill) render();
   }
-  if (monitorMode) { updateMonitor(buttons, axes, d); setGpStatus(true); return; }
-  if (monitorArm) { handleArmInput(buttons, axes); setGpStatus(true); return; }
-  handlePhysInput(buttons, axes);
-  updateLive();
+  // Unified live input (union of every connected controller) drives highlighting + navigation.
+  const m = mergedInput();
+  liveAxes = m.axes;
+  phys = m.buttons;
   setGpStatus(true);
+  if (monitorMode) { if (isActive) updateMonitor(buttons, axes, d); return; } // monitor observes the edited controller
+  if (monitorArm) { handleArmInput(m.buttons, m.axes); return; }
+  handlePhysInput(m.buttons, m.axes);
+  updateLive();
 }
 
 function handlePhysInput(buttons, axes) {
@@ -1050,6 +1070,7 @@ function init() {
       const idx = controllers.findIndex((c) => c.device === e.device);
       if (idx !== -1) {
         e.device.removeEventListener("inputreport", onInputReport);
+        ctrlState.delete(e.device);
         controllers.splice(idx, 1);
         if (activeCtrl >= controllers.length) activeCtrl = Math.max(0, controllers.length - 1);
         deviceProfile = null;
