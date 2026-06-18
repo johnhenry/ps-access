@@ -1,6 +1,6 @@
 {
   "name": "ps-access",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Read/write PlayStation Access Controller profiles from a PC (no PS5). CLI + WebHID tool + PC input bridge.",
   "type": "module",
   "bin": {
@@ -46,7 +46,7 @@
     "url": "https://github.com/johnhenry/ps-access/issues"
   },
   "author": "johnhenry",
-  "dependencies": {
+  "optionalDependencies": {
     "node-hid": "^3.1.2"
   },
   "license": "MIT"

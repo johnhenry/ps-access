@@ -17,7 +17,9 @@ yourself.
 ## Requirements
 
 - The controller connected by **USB-C** (the profile channel isn’t available over Bluetooth).
-- CLI: Node.js (tested on v26) with `node-hid` (`npm install`).
+- CLI: Node.js (tested on v26). `node-hid` is an **optional** dependency (installed
+  automatically) needed only to talk to the controller; commands that don't touch the device
+  (`presets`, `share`, `show-share`, `help`) and the web tool work even if it isn't built.
 - Web tool: Chrome or Edge (desktop) for WebHID.
 - macOS may prompt for **Input Monitoring** permission for the terminal/Chrome on first use.
 
