@@ -85,11 +85,21 @@ async function runSimulate(opts, engine, sink) {
 }
 
 async function runLive(opts, engine, sink) {
-  let HID;
-  try { ({ HID } = await import("./lib/hid-node.mjs")); }
-  catch (e) { throw new Error("node-hid is required for live mode (run `npm install`). " + (e.message || e)); }
-  const { listControllers } = await import("./lib/hid-node.mjs");
-  const list = listControllers();
+  let HID, listControllers, list;
+  try {
+    const mod = await import("./lib/hid-node.mjs");
+    HID = mod.HID; listControllers = mod.listControllers;
+    list = listControllers(); // also forces node-hid's native binding to load
+  } catch (e) {
+    const m = String(e.message || e);
+    if (e.code === "ERR_MODULE_NOT_FOUND" || /Cannot find (module|package)/.test(m)) {
+      throw new Error("live mode needs node-hid — run `npm install` (or `npm i -g ps-access`). `edit`/`set`/`show` work without it.");
+    }
+    if (/libudev|shared object|NODE_MODULE_VERSION|was compiled|dlopen|\.node/.test(m)) {
+      throw new Error(`node-hid couldn't load on this system (${m}). On Linux it needs libudev. \`edit\`/\`set\`/\`show\` work without it.`);
+    }
+    throw new Error(`live mode unavailable: ${m}`);
+  }
   if (!list.length) throw new Error("No Access Controller connected (VID 054C / PID 0E5F). Connect it via USB-C.");
   const sel = opts.device ?? 0;
   const entry = (typeof sel === "string" && sel.startsWith("/")) ? list.find((d) => d.path === sel) : list[Number(sel)];

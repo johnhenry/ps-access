@@ -12,10 +12,22 @@ import { PRESETS, presetById, fromFileText, applyPortable, decodeShare, shareURL
 // without it installed. Device commands call loadHid() first (see the dispatcher).
 let _hid = null;
 async function loadHid() {
-  if (!_hid) {
-    try { _hid = await import("./lib/hid-node.mjs"); }
-    catch (e) { throw new Error(`this command needs the controller — run "npm install" first (${e.message || e})`); }
+  if (_hid) return _hid;
+  let mod;
+  try {
+    mod = await import("./lib/hid-node.mjs");
+    mod.listControllers(); // probe: force node-hid's native binding to load now, so we can explain failures
+  } catch (e) {
+    const m = String(e.message || e);
+    if (e.code === "ERR_MODULE_NOT_FOUND" || /Cannot find (module|package)|ERR_MODULE_NOT_FOUND/.test(m)) {
+      throw new Error(`controller access needs node-hid, which isn't installed. Run "npm install" (or "npm i -g ps-access"). The offline commands (presets, share, show-share) work without it.`);
+    }
+    if (/libudev|shared object|NODE_MODULE_VERSION|was compiled|dlopen|\.node/.test(m)) {
+      throw new Error(`node-hid couldn't load on this system (${m}). On Linux it needs libudev (e.g. apt install libudev1, or the udev package). Offline commands (presets, share, show-share) still work.`);
+    }
+    throw new Error(`controller access unavailable: ${m}`);
   }
+  _hid = mod;
   return _hid;
 }
 const listControllers = (...a) => _hid.listControllers(...a);
