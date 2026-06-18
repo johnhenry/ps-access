@@ -250,9 +250,9 @@ function bladeItems(blade) {
     }
     items.push(
       { key: "br-reset", label: "Reset to defaults", action: "bridgeReset" },
-      { key: "br-export", label: "Export config file (bridge.json)", action: "bridgeExport" },
+      { key: "br-export", label: "Export config for the ps-access CLI (bridge.json)", action: "bridgeExport" },
       { key: "br-json", label: "Copy config JSON", action: "bridgeCopyJson" },
-      { key: "br-cmd", label: "Copy run command", action: "bridgeCopyCmd" },
+      { key: "br-cmd", label: "Copy CLI run command (npx ps-access-bridge)", action: "bridgeCopyCmd" },
     );
     return items;
   }
@@ -388,7 +388,7 @@ function announce(msg) {
 // Concise description of the current focus, spoken by screen readers on every nav change.
 function describeNav() {
   if (capturing) return "Listening — press a keyboard key to assign, Delete to clear, or Escape to cancel.";
-  if (monitorMode) return "Live input monitor open. Observe the controller, then press Escape to exit.";
+  if (monitorMode) return "Live input monitor open, showing all connected controllers. Press Escape to exit.";
   if (monitorArm) return `Start the live monitor? ${warnSel === 0 ? "Start monitoring" : "Cancel"}, option ${warnSel + 1} of 2. Up or Down to choose, Enter to confirm.`;
   const blade = BLADES[nav.col];
   if (nav.drill) {
@@ -455,7 +455,7 @@ function activate() {
     case "capture": startCapture(it.cap); break;
     case "cycleStick": cycleStickMode(); break;
     case "bridgeReset": bridgeMap = defaultBridgeMap(); saveBridgeMap(); render(); toast("Bridge mapping reset to defaults"); break;
-    case "bridgeExport": downloadText("ps-access-bridge.json", toConfigJSON(bridgeMap)); toast("Exported bridge.json — run it with the bridge CLI", 4000); break;
+    case "bridgeExport": downloadText("ps-access-bridge.json", toConfigJSON(bridgeMap)); toast("Exported bridge.json — run it with: npx ps-access-bridge --config bridge.json", 5000); break;
     case "bridgeCopyJson": copyText(toConfigJSON(bridgeMap)).then((ok) => toast(ok ? "Config JSON copied" : "Copy failed", 2500)); break;
     case "bridgeCopyCmd": copyText(runCommand()).then((ok) => toast(ok ? "Run command copied" : "Copy failed", 2500)); break;
   }
@@ -701,14 +701,37 @@ async function reloadFromDevice() {
 // ============================ live input monitor ============================
 // Full-screen overlay. The controller is purely observed here (navigation is suspended), so
 // every physical button and the stick can be tested freely; exit with Esc or the Done button.
-function buildMonChips() {
-  $("#mon-chips").innerHTML = PHYS_NAMES.map((n, i) =>
+function monChipsHTML() {
+  return PHYS_NAMES.map((n, i) =>
     `<div class="chip" data-i="${i}">${i < 8 ? n : n.split("-")[0]}<small>${i < 8 ? "button" : (i === 8 ? "center" : "L3")}</small></div>`).join("");
 }
-function buildMonRaw() {
+function monRawHTML() {
   let h = "";
   for (let i = 0; i < 63; i++) h += `<div class="b${i === 15 || i === 16 ? " btn" : ""}" data-i="${i}">00</div>`;
-  $("#mon-raw").innerHTML = h;
+  return h;
+}
+// Active on-device profile slot for a controller (from the last input report's byte 39), else 0.
+function monProfileSlot(c) {
+  const p = ctrlState.get(c.device)?.profile;
+  return (p >= 1 && p <= PROFILE_COUNT) ? p - 1 : 0;
+}
+function monCardHTML(i, c) {
+  return `<div class="mon-card" data-ctrl="${i}" data-pslot="">
+    <div class="hd"><span class="nm">${c.name}</span><span class="pf"></span></div>
+    <div class="r"></div>
+    <div class="chips"></div>
+    <div class="stickrow">
+      <div class="crosshair"><div class="dot"></div></div>
+      <div class="axisvals">X <b class="ax">0.00</b> · Y <b class="ay">0.00</b></div>
+    </div>
+    <div class="raw"></div>
+  </div>`;
+}
+function renderMonCardProfile(card, c) {
+  const slot = monProfileSlot(c);
+  card.querySelector(".r").innerHTML = profileSVG(c.profiles[slot] || c.profiles[0]);
+  card.querySelector(".pf").innerHTML = `<b>Profile ${slot + 1}</b>`;
+  card.dataset.pslot = String(slot);
 }
 // Step 1: a PS3-style confirm gate warning that the controller can't exit this view (Esc / Done
 // only). A navigable two-option list — Start / Cancel — operable by keyboard (↑↓ + Enter / Esc),
@@ -742,13 +765,17 @@ function pickArm() { warnSel === 0 ? confirmArm() : cancelArm(); }
 // Step 2: enter the live monitor, rendering the *chosen* profile (so the controller image
 // matches that profile's orientation) and showing which profile is on screen.
 function enterMonitor() {
-  if (!controllers[activeCtrl]) { toast("Connect a controller first"); return; }
-  const prof = controllers[activeCtrl].profiles[shownProfileSlot()]; // the active on-device profile
+  if (!controllers.length) { toast("Connect a controller first"); return; }
   monitorMode = true;
-  $("#mon-render").innerHTML = profileSVG(prof);                 // profileSVG bakes in the orientation
-  updateProfileTag();                                            // top-bar already shows it, keep in sync
-  if (!$("#mon-chips").children.length) buildMonChips();
-  if (!$("#mon-raw").children.length) buildMonRaw();
+  const wrap = $("#mon-cards");
+  wrap.innerHTML = controllers.map((c, i) => monCardHTML(i, c)).join(""); // one card per controller
+  for (const card of wrap.querySelectorAll(".mon-card")) {
+    const i = +card.dataset.ctrl;
+    card.querySelector(".chips").innerHTML = monChipsHTML();
+    card.querySelector(".raw").innerHTML = monRawHTML();
+    renderMonCardProfile(card, controllers[i]);
+  }
+  updateProfileTag();
   $("#monitor").classList.add("show");
   $("#stage").style.display = "none";
   $(".footer").style.display = "none"; // its nav hints don't apply while observing
@@ -762,23 +789,31 @@ function exitMonitor() {
   blip(330);
   render();
 }
-function updateMonitor(buttons, axes, d) {
-  for (const el of document.querySelectorAll("#mon-render svg [data-btn]"))
+// Update the card for the controller that sent this report (every controller updates live).
+function updateMonitor(device, buttons, axes, d, profile) {
+  const i = controllers.findIndex((c) => c.device === device);
+  if (i < 0) return;
+  const card = document.querySelector(`#mon-cards .mon-card[data-ctrl="${i}"]`);
+  if (!card) return;
+  if (profile >= 1 && profile <= PROFILE_COUNT && String(profile - 1) !== card.dataset.pslot) {
+    renderMonCardProfile(card, controllers[i]); // active on-device profile changed -> re-render this card
+  }
+  for (const el of card.querySelectorAll(".r svg [data-btn]"))
     el.classList.toggle("on", buttons.has(+el.getAttribute("data-btn")));
-  const thumb = $("#mon-render svg .thumb");
+  const thumb = card.querySelector(".r svg .thumb");
   if (thumb) {
     thumb.setAttribute("cx", (+thumb.dataset.bx + axes[0] * M.THUMB_R).toFixed(1));
     thumb.setAttribute("cy", (+thumb.dataset.by + axes[1] * M.THUMB_R).toFixed(1));
   }
-  for (const c of $("#mon-chips").children) c.classList.toggle("on", buttons.has(+c.dataset.i));
-  $("#mon-stickdot").style.left = (50 + axes[0] * 38) + "%";
-  $("#mon-stickdot").style.top = (50 + axes[1] * 38) + "%";
-  $("#mon-ax").textContent = axes[0].toFixed(2);
-  $("#mon-ay").textContent = axes[1].toFixed(2);
-  const cells = $("#mon-raw").children;
-  for (let i = 0; i < d.length && i < cells.length; i++) {
-    cells[i].textContent = d[i].toString(16).padStart(2, "0");
-    cells[i].classList.toggle("nz", d[i] !== 0);
+  for (const c of card.querySelectorAll(".chips .chip")) c.classList.toggle("on", buttons.has(+c.dataset.i));
+  card.querySelector(".dot").style.left = (50 + axes[0] * 38) + "%";
+  card.querySelector(".dot").style.top = (50 + axes[1] * 38) + "%";
+  card.querySelector(".ax").textContent = axes[0].toFixed(2);
+  card.querySelector(".ay").textContent = axes[1].toFixed(2);
+  const cells = card.querySelectorAll(".raw .b");
+  for (let k = 0; k < d.length && k < cells.length; k++) {
+    cells[k].textContent = d[k].toString(16).padStart(2, "0");
+    cells[k].classList.toggle("nz", d[k] !== 0);
   }
 }
 
@@ -907,7 +942,7 @@ function onInputReport(e) {
   lastInputAt = performance.now();
   waveConnected = true; // a report is streaming -> the wave is visible
   const { buttons, axes, profile } = decodePhysical(d);
-  ctrlState.set(e.device, { buttons, axes });
+  ctrlState.set(e.device, { buttons, axes, profile });
   const isActive = e.device === controllers[activeCtrl]?.device;
   // Active-profile tracking is per-device — only the *edited* controller's profile drives the
   // indicator/wave/monitor. (Refresh the top bar, wave and "✓ Active" marker when it changes.)
@@ -915,15 +950,14 @@ function onInputReport(e) {
     deviceProfile = profile - 1;
     updateProfileTag();
     setWaveProfile(deviceProfile);
-    if (monitorMode) $("#mon-render").innerHTML = profileSVG(controllers[activeCtrl].profiles[deviceProfile]);
-    else if (!monitorArm && !nav.drill) render();
+    if (!monitorMode && !monitorArm && !nav.drill) render(); // monitor cards re-render themselves
   }
   // Unified live input (union of every connected controller) drives highlighting + navigation.
   const m = mergedInput();
   liveAxes = m.axes;
   phys = m.buttons;
   setGpStatus(true);
-  if (monitorMode) { if (isActive) updateMonitor(buttons, axes, d); return; } // monitor observes the edited controller
+  if (monitorMode) { updateMonitor(e.device, buttons, axes, d, profile); return; } // every controller updates its card
   if (monitorArm) { handleArmInput(m.buttons, m.axes); return; }
   handlePhysInput(m.buttons, m.axes);
   updateLive();

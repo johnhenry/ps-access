@@ -158,6 +158,29 @@
   #mon-done { position: absolute; top: -2px; right: 0; font: inherit; font-size: 13px; color: var(--dim);
     background: var(--glass); border: 1px solid rgba(255,255,255,.14); padding: 5px 12px; border-radius: 999px; cursor: pointer; z-index: 7; }
   #mon-done:hover { color: var(--ink); border-color: var(--accent); }
+
+  /* multi-controller monitor: one card per connected controller */
+  #mon-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 22px;
+    height: 100%; overflow: auto; align-content: start; padding: 2px 2px 8px; }
+  .mon-card { background: var(--glass); border: 1px solid rgba(255,255,255,.08); border-radius: 16px;
+    backdrop-filter: blur(10px); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .mon-card .hd { display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    font-size: 12px; letter-spacing: .04em; color: var(--dim); }
+  .mon-card .hd .nm { color: var(--ink); font-size: 13px; }
+  .mon-card .hd .pf b { color: var(--accent); font-weight: 500; }
+  .mon-card .r { display: grid; place-items: center; }
+  .mon-card .r svg { width: 100%; max-width: 300px; height: auto; overflow: visible; }
+  .mon-card .r .seg { fill: rgba(255,255,255,.045); stroke: rgba(255,255,255,.2); stroke-width: 2; stroke-linejoin: round; transition: fill .07s, stroke .07s; }
+  .mon-card .r .seg.on { fill: var(--accent2); stroke: var(--accent); }
+  .mon-card .r .lab { fill: var(--ink); font: 300 22px sans-serif; text-anchor: middle; }
+  .mon-card .r .lab.big { font-size: 34px; } .mon-card .r .lab.sm { font-size: 15px; fill: var(--dim); }
+  .mon-card .r .stickwell { fill: rgba(255,255,255,.035); stroke: rgba(255,255,255,.2); stroke-width: 2; }
+  .mon-card .r .thumb { fill: rgba(255,255,255,.12); stroke: rgba(255,255,255,.22); stroke-width: 2; transition: fill .07s, cx .04s linear, cy .04s linear; }
+  .mon-card .r .thumb.on { fill: var(--accent2); stroke: var(--accent); }
+  .mon-card .raw { display: grid; grid-template-columns: repeat(16,1fr); gap: 3px; font: 11px ui-monospace, monospace; }
+  .mon-card .raw .b { text-align: center; padding: 3px 0; border-radius: 4px; background: rgba(255,255,255,.03); color: #6c7a89; }
+  .mon-card .raw .b.nz { color: var(--ink); background: rgba(255,255,255,.07); }
+  .mon-card .raw .b.btn { outline: 1.5px solid var(--accent); color: var(--accent); }
   .devcol { display: inline-flex; flex-direction: column; line-height: 1.25; }
   #mon-prof { font-size: 11px; color: var(--dim); letter-spacing: .02em; }
   #mon-prof:empty { display: none; }
@@ -249,6 +272,8 @@
     <span class="device"><span class="dot" id="dev-dot"></span><span class="devcol"><span id="dev-name">No controller</span><span id="mon-prof"></span></span></span>
     <span id="crumb"></span>
     <span class="clock" id="clock"></span>
+    <a href="https://www.npmjs.com/package/ps-access" target="_blank" rel="noopener"
+       title="Also a command-line tool: npm i -g ps-access (profiles + PC input bridge)">CLI ↗</a>
   </div>
 
   <!-- Screen-reader live region: every navigation/value change is announced here. -->
@@ -269,27 +294,8 @@
 
   <div id="monitor">
     <button id="mon-done">Done · Esc</button>
-    <div class="mon-grid">
-      <div id="mon-render"></div>
-      <div class="panel">
-        <div>
-          <h2>Buttons (physical)</h2>
-          <div class="chips" id="mon-chips"></div>
-        </div>
-        <div>
-          <h2>Stick</h2>
-          <div class="stickrow">
-            <div class="crosshair"><div class="dot" id="mon-stickdot"></div></div>
-            <div class="axisvals">X <b id="mon-ax">0.00</b><br>Y <b id="mon-ay">0.00</b></div>
-          </div>
-        </div>
-        <div>
-          <h2>Raw input report (id 0x01)</h2>
-          <div id="mon-raw"></div>
-          <div class="legend" style="font-size:11px;color:var(--dim);margin-top:6px">outlined = <b style="color:var(--accent)">byte 15</b> (perimeter) &amp; <b style="color:var(--accent)">byte 16</b> (center / stick-click)</div>
-        </div>
-      </div>
-    </div>
+    <!-- One card per connected controller, built in xmb.js. -->
+    <div id="mon-cards"></div>
   </div>
 
   <div id="mon-warn">
@@ -332,7 +338,8 @@
         <dt>M</dt><dd>Toggle navigation sounds</dd>
         <dt>?</dt><dd>Open this help</dd>
       </dl>
-      <button class="close" id="help-focus" aria-pressed="false" style="margin-top:18px;margin-right:8px">High-visibility focus ring: Off</button>
+      <p class="sub" style="margin-top:16px">Also a command-line tool — <code>npm i -g ps-access</code> (profile editing + the PC input bridge). See <a href="https://github.com/johnhenry/ps-access" target="_blank" rel="noopener" style="color:var(--accent)">github.com/johnhenry/ps-access</a>.</p>
+      <button class="close" id="help-focus" aria-pressed="false" style="margin-right:8px">High-visibility focus ring: Off</button>
       <button class="close" id="help-close">Close · Esc</button>
     </div>
   </div>
