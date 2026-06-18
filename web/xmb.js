@@ -704,7 +704,7 @@ function back() {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 window.addEventListener("keydown", (e) => {
-  if (helpOpen) { if (e.key === "Escape" || e.key === "Enter" || e.key === "?" || e.key === "Backspace") { closeHelp(); e.preventDefault(); } return; }
+  if (helpOpen) { if (e.key === "Escape" || e.key === "?" || e.key === "Backspace") { closeHelp(); e.preventDefault(); } return; } // Enter falls through to activate the focused button
   if (e.key === "?" || ((e.key === "h" || e.key === "H") && !renaming)) { openHelp(); e.preventDefault(); return; }
   if (monitorArm) {
     if (e.key === "ArrowUp" || e.key === "ArrowDown") { warnSel = warnSel ? 0 : 1; renderWarnSel(); blip(440); announce(describeNav()); e.preventDefault(); }
@@ -733,8 +733,26 @@ function openHelp() {
   const dlg = $("#help");
   dlg.classList.add("show");
   dlg.setAttribute("aria-hidden", "false");
+  updateFocusBtn();
   $("#help-close")?.focus();
   blip(660);
+}
+
+// ---- high-visibility focus ring (opt-in, off by default, persisted) ----
+function focusRingOn() { return document.body.classList.contains("hi-focus"); }
+function updateFocusBtn() {
+  const b = $("#help-focus");
+  if (!b) return;
+  const on = focusRingOn();
+  b.textContent = `High-visibility focus ring: ${on ? "On" : "Off"}`;
+  b.setAttribute("aria-pressed", String(on));
+}
+function toggleFocusRing() {
+  const on = document.body.classList.toggle("hi-focus");
+  try { localStorage.setItem("psaccess.hiFocus", on ? "1" : "0"); } catch { /* ignore */ }
+  updateFocusBtn();
+  toast(`High-visibility focus ring ${on ? "on" : "off"}`, 1500);
+  announce(`Focus ring ${on ? "on" : "off"}`);
 }
 function closeHelp() {
   helpOpen = false;
@@ -902,6 +920,8 @@ function init() {
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js").catch(() => { /* non-fatal */ });
   }
+  // Restore the opt-in focus-ring preference (default off).
+  try { if (localStorage.getItem("psaccess.hiFocus") === "1") document.body.classList.add("hi-focus"); } catch { /* ignore */ }
   startWave();
   tickClock(); setInterval(tickClock, 15000);
   // mark the controller disconnected if no input report has arrived recently (also fades the wave out)
@@ -939,6 +959,7 @@ function init() {
   $("#warn-start").onclick = confirmArm;
   $("#warn-cancel").onclick = cancelArm;
   $("#help-close").onclick = closeHelp;
+  $("#help-focus").onclick = toggleFocusRing;
   $("#help").addEventListener("click", (e) => { if (e.target.id === "help") closeHelp(); });
   try {
     pendingShare = parseShareHash(location.hash);

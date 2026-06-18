@@ -193,9 +193,10 @@
   .visually-hidden { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 
-  /* Strong, color-independent focus indicator for the selected item/blade. */
-  .item.sel { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
-  .blade.focused .label { outline: 2px solid transparent; }
+  /* High-visibility focus ring on the selected item — OPT-IN (off by default) so it doesn't
+     fight the XMB look. Toggle in Help (?). OS contrast prefs force it on (see media queries). */
+  body.hi-focus .item.sel { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+  /* Real focusable controls (buttons) keep a standard keyboard-focus ring. */
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
   /* Respect users who ask for less motion: kill the animated wave + all transitions. */
@@ -205,11 +206,11 @@
     body { background: radial-gradient(120% 90% at 50% 35%, #0a1422 0%, #05070c 70%); }
   }
 
-  /* Higher contrast on request. */
+  /* Higher contrast on request — also forces the focus ring on regardless of the toggle. */
   @media (prefers-contrast: more) {
     :root { --ink: #ffffff; --dim: #cdd9e6; --accent: #9cc4ff; }
     .item { opacity: .8; }
-    .item.sel { outline-width: 3px; }
+    .item.sel { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
   }
   /* Windows High Contrast / forced-colors: use system colors, keep focus visible. */
   @media (forced-colors: active) {
@@ -327,6 +328,7 @@
         <dt>M</dt><dd>Toggle navigation sounds</dd>
         <dt>?</dt><dd>Open this help</dd>
       </dl>
+      <button class="close" id="help-focus" aria-pressed="false" style="margin-top:18px;margin-right:8px">High-visibility focus ring: Off</button>
       <button class="close" id="help-close">Close · Esc</button>
     </div>
   </div>

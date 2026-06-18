@@ -65,9 +65,11 @@ importing, use **Save** to write it to the controller.
 
 **Accessibility:** the configurator is built to be used by the same people the controller is for.
 Every section/option/value change is announced to screen readers (a polite live region), it's
-fully keyboard- and controller-operable, the selected item has a color-independent focus ring,
-**?** opens a controls reference, and it honors `prefers-reduced-motion` (no animated wave),
-`prefers-contrast`, and Windows High Contrast / `forced-colors`.
+fully keyboard- and controller-operable, **?** opens a controls reference, and it honors
+`prefers-reduced-motion` (no animated wave), `prefers-contrast`, and Windows High Contrast /
+`forced-colors`. A high-visibility focus ring on the selected item is available as an **opt-in
+toggle in Help (off by default**, so it doesn't fight the XMB look); OS high-contrast / forced-colors
+modes turn it on automatically.
 
 It's driven by the controller's **raw HID input report**, so it reads *physical* buttons
 regardless of remapping: tilt the **stick** to navigate, **center / stick-click = confirm**,
