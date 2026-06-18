@@ -12,6 +12,10 @@ import { SYMBOLS, symLabel, nameLabel, M, profileSVG, decodePhysical, PHYS_NAMES
 import {
   PRESETS, toPortable, applyPortable, shareURL, parseShareHash, toFileText, fromFileText,
 } from "./profile-library.mjs";
+import {
+  PHYS_LABELS, STICK_MODES, STICK_DIRS, defaultBridgeMap, keyEventToValue, displayValue,
+  toConfigJSON, runCommand,
+} from "./bridge-map.mjs";
 
 const $ = (s) => document.querySelector(s);
 
@@ -31,6 +35,8 @@ let warnSel = 0;           // highlighted option on the confirm gate (0 = Start,
 let lastProfileSlot = 0;   // slot of the most recently focused profile blade — what the Save blade acts on
 let deviceProfile = null;  // active on-device profile slot (0-based, from input-report byte 39); null until known
 let pendingShare = null;   // a portable profile decoded from the URL hash, awaiting "Apply shared"
+let bridgeMap = loadBridgeMap();  // PC input-bridge mapping edited in the Key Bridge blade
+let capturing = null;      // { kind:"button", idx } | { kind:"stick", dir } while listening for a key
 
 const BLADES = [
   { key: "controllers", label: "Controllers", kind: "controllers" },
@@ -39,8 +45,17 @@ const BLADES = [
   { key: "p3", label: "Profile 3", kind: "profile", slot: 2 },
   { key: "save", label: "Save", kind: "save", glyph: "▣" },
   { key: "library", label: "Library", kind: "library" },
+  { key: "bridge", label: "Key Bridge", kind: "bridge" },
   { key: "monitor", label: "Monitor", kind: "monitor" },
 ];
+
+function loadBridgeMap() {
+  try { const s = localStorage.getItem("psaccess.bridgeMap"); if (s) return JSON.parse(s); } catch { /* ignore */ }
+  return defaultBridgeMap();
+}
+function saveBridgeMap() {
+  try { localStorage.setItem("psaccess.bridgeMap", JSON.stringify(bridgeMap)); } catch { /* ignore */ }
+}
 
 // Stylized, generic gamepad icon for the Controllers blade. Parts use the same `.seg` class
 // as the profile controller render, so it inherits the identical segment styling.
@@ -72,6 +87,17 @@ const LIBRARY_ICON = `<svg class="save-icon" viewBox="0 0 96 96" xmlns="http://w
   <rect class="seg" x="34" y="22" width="40" height="44" rx="5"/>
 </svg>`;
 
+// Stylized keyboard icon for the Key Bridge blade — same `.seg` style.
+const BRIDGE_ICON = `<svg class="ctrl-icon" viewBox="0 0 120 92" xmlns="http://www.w3.org/2000/svg">
+  <rect class="seg" x="12" y="26" width="96" height="48" rx="9"/>
+  <rect class="seg" x="24" y="37" width="10" height="10" rx="2"/>
+  <rect class="seg" x="40" y="37" width="10" height="10" rx="2"/>
+  <rect class="seg" x="56" y="37" width="10" height="10" rx="2"/>
+  <rect class="seg" x="72" y="37" width="10" height="10" rx="2"/>
+  <rect class="seg" x="88" y="37" width="8" height="10" rx="2"/>
+  <rect class="seg" x="40" y="53" width="40" height="10" rx="2"/>
+</svg>`;
+
 function activeProfile() {
   const b = BLADES[nav.col];
   if (b?.kind === "profile") return controllers[activeCtrl]?.profiles[b.slot] || null;
@@ -89,6 +115,10 @@ function updateLive() {
     const bx = +th.dataset.bx, by = +th.dataset.by;
     th.setAttribute("cx", (bx + liveAxes[0] * M.THUMB_R).toFixed(1));
     th.setAttribute("cy", (by + liveAxes[1] * M.THUMB_R).toFixed(1));
+  }
+  // Key Bridge: light up the row for whichever physical button is being pressed.
+  for (const row of document.querySelectorAll("#items .item[data-phys]")) {
+    row.classList.toggle("physdown", phys.has(+row.dataset.phys));
   }
 }
 
@@ -202,6 +232,30 @@ function bladeItems(blade) {
     PRESETS.forEach((p, i) => items.push({ key: "preset" + i, label: `Preset · ${p.name}`, action: "applyPreset", preset: i }));
     return items;
   }
+  if (blade.kind === "bridge") {
+    const cap = (c) => (capturing && capturing.kind === c.kind && capturing.idx === c.idx && capturing.dir === c.dir);
+    const items = [];
+    PHYS_LABELS.forEach((lab, i) => {
+      const c = { kind: "button", idx: i, dir: undefined };
+      items.push({ key: "b" + i, phys: i, action: "capture", cap: c,
+        label: `${lab} → ${cap(c) ? "press a key… (Esc)" : displayValue(bridgeMap.buttons[i])}` });
+    });
+    items.push({ key: "stickmode", action: "cycleStick", label: `Stick mode → ${bridgeMap.stick.mode}` });
+    if (bridgeMap.stick.mode === "keys") {
+      STICK_DIRS.forEach((dir) => {
+        const c = { kind: "stick", idx: undefined, dir };
+        items.push({ key: "sd-" + dir, action: "capture", cap: c,
+          label: `Stick ${dir} → ${cap(c) ? "press a key… (Esc)" : displayValue(bridgeMap.stick[dir])}` });
+      });
+    }
+    items.push(
+      { key: "br-reset", label: "Reset to defaults", action: "bridgeReset" },
+      { key: "br-export", label: "Export config file (bridge.json)", action: "bridgeExport" },
+      { key: "br-json", label: "Copy config JSON", action: "bridgeCopyJson" },
+      { key: "br-cmd", label: "Copy run command", action: "bridgeCopyCmd" },
+    );
+    return items;
+  }
   if (blade.kind === "monitor") {
     return [{ key: "openmon", label: "Open live monitor", action: "monitor" }];
   }
@@ -244,6 +298,7 @@ function render() {
       else if (b.kind === "save") g.innerHTML = SAVE_ICON;
       else if (b.kind === "monitor") g.innerHTML = MONITOR_ICON;
       else if (b.kind === "library") g.innerHTML = LIBRARY_ICON;
+      else if (b.kind === "bridge") g.innerHTML = BRIDGE_ICON;
       else g.textContent = b.glyph;
       icon.append(g);
     }
@@ -291,6 +346,7 @@ function renderItems() {
       el.className = "item" + (i === nav.row ? " sel" : "");
       el.setAttribute("role", "option");
       el.setAttribute("aria-selected", String(i === nav.row));
+      if (it.phys != null) el.dataset.phys = it.phys; // Key Bridge: highlight when that button is pressed
       el.innerHTML = `<span class="chev">▸</span><span class="lab">${it.label}</span>`;
       el.onclick = () => { nav.row = i; activate(); };
       wrap.append(el);
@@ -331,6 +387,7 @@ function announce(msg) {
 
 // Concise description of the current focus, spoken by screen readers on every nav change.
 function describeNav() {
+  if (capturing) return "Listening — press a keyboard key to assign, Delete to clear, or Escape to cancel.";
   if (monitorMode) return "Live input monitor open. Observe the controller, then press Escape to exit.";
   if (monitorArm) return `Start the live monitor? ${warnSel === 0 ? "Start monitoring" : "Cancel"}, option ${warnSel + 1} of 2. Up or Down to choose, Enter to confirm.`;
   const blade = BLADES[nav.col];
@@ -392,7 +449,37 @@ function activate() {
     case "import": importProfile(); break;
     case "applyPreset": applyPresetToCurrent(it.preset); break;
     case "applyShared": applySharedToCurrent(); break;
+    case "capture": startCapture(it.cap); break;
+    case "cycleStick": cycleStickMode(); break;
+    case "bridgeReset": bridgeMap = defaultBridgeMap(); saveBridgeMap(); render(); toast("Bridge mapping reset to defaults"); break;
+    case "bridgeExport": downloadText("ps-access-bridge.json", toConfigJSON(bridgeMap)); toast("Exported bridge.json — run it with the bridge CLI", 4000); break;
+    case "bridgeCopyJson": copyText(toConfigJSON(bridgeMap)).then((ok) => toast(ok ? "Config JSON copied" : "Copy failed", 2500)); break;
+    case "bridgeCopyCmd": copyText(runCommand()).then((ok) => toast(ok ? "Run command copied" : "Copy failed", 2500)); break;
   }
+}
+
+// ============================ Key Bridge editor ============================
+// Start listening for a keyboard key to assign to a physical button or stick direction.
+function startCapture(cap) {
+  capturing = cap;
+  render();
+  toast("Press a keyboard key to assign · Esc cancels · Delete clears", 6000);
+}
+function finishCapture(value) {
+  if (!capturing) return;
+  if (capturing.kind === "button") bridgeMap.buttons[capturing.idx] = value;
+  else bridgeMap.stick[capturing.dir] = value;
+  capturing = null;
+  saveBridgeMap();
+  render();
+  blip(720);
+}
+function cycleStickMode() {
+  const i = STICK_MODES.indexOf(bridgeMap.stick.mode);
+  bridgeMap.stick.mode = STICK_MODES[(i + 1) % STICK_MODES.length];
+  saveBridgeMap();
+  render();
+  toast(`Stick mode: ${bridgeMap.stick.mode}`, 1800);
 }
 
 // ============================ library / sharing ============================
@@ -704,6 +791,14 @@ function back() {
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 window.addEventListener("keydown", (e) => {
+  if (capturing) {
+    e.preventDefault();
+    if (e.key === "Escape") { capturing = null; render(); toast("Cancelled", 1200); return; }
+    if (e.key === "Delete") { finishCapture("nothing"); return; }
+    const v = keyEventToValue(e);
+    if (v) finishCapture(v); // null = a modifier on its own; keep listening
+    return;
+  }
   if (helpOpen) { if (e.key === "Escape" || e.key === "?" || e.key === "Backspace") { closeHelp(); e.preventDefault(); } return; } // Enter falls through to activate the focused button
   if (e.key === "?" || ((e.key === "h" || e.key === "H") && !renaming)) { openHelp(); e.preventDefault(); return; }
   if (monitorArm) {
@@ -793,7 +888,7 @@ function onInputReport(e) {
 }
 
 function handlePhysInput(buttons, axes) {
-  if (renaming) return;
+  if (renaming || capturing) return; // suspend controller nav while binding a key
   const now = lastInputAt;
   const dir = { left: axes[0] < -0.5, right: axes[0] > 0.5, up: axes[1] < -0.5, down: axes[1] > 0.5 };
   const heldDir = dir.left || dir.right || dir.up || dir.down;

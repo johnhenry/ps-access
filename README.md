@@ -53,15 +53,23 @@ Open **<http://localhost:3000/web/>** in Chrome/Edge.
 ### XMB view (`index.html`)
 
 A full-screen XrossMediaBar-style interface: a horizontal ribbon of blades
-(`Controllers · Profile 1 · 2 · 3 · Save · Library · Monitor`, each profile rendered as a live
-mini-controller), a vertical item list, and an enlarged "hero" render when you drill in. Edit
-button/stick/port mappings with horizontal value spinners, then save to the controller.
+(`Controllers · Profile 1 · 2 · 3 · Save · Library · Key Bridge · Monitor`, each profile rendered
+as a live mini-controller), a vertical item list, and an enlarged "hero" render when you drill in.
+Edit button/stick/port mappings with horizontal value spinners, then save to the controller.
 
 The **Library** blade is for **sharing and presets** (all client-side, no account): apply a
 curated starting-point preset (one-handed, toggle-triggers, external-switch D-pad…), **export**
 a profile to a JSON file, **import** a file or a CLI backup, or **copy a share link** — a URL
 whose `#p=…` hash encodes the profile, auto-detected when someone opens it. After applying or
 importing, use **Save** to write it to the controller.
+
+The **Key Bridge** blade is a visual editor for the PC input bridge: assign **any keyboard key
+or chord** to each physical button and the stick by selecting a row, pressing Enter, then pressing
+the key you want (press the physical button to find its row — it lights up live). Pick a stick
+mode (keys / mouse / gamepad axis), then **Export** a `bridge.json` or **copy the run command**.
+The browser can author and preview the mapping, but it can't inject input into other apps — you
+run the exported config with the local bridge (`node bridge.mjs --config bridge.json`), which is
+what actually drives the PC. (Macros — multi-step sequences — are edited in the exported JSON.)
 
 **Accessibility:** the configurator is built to be used by the same people the controller is for.
 Every section/option/value change is announced to screen readers (a polite live region), it's
@@ -108,7 +116,7 @@ used to reverse-engineer the physical-button layout (see PROTOCOL.md).
 Beyond editing PS5 profiles, you can use the Access Controller as a **general PC input device** —
 its stick and buttons driving keyboard/mouse or a virtual gamepad, so it controls *any* software,
 not just a PS5. The bridge reads the controller's live USB input and maps it through a small,
-platform-agnostic engine (`lib/bridge-core.mjs`) to a pluggable output **sink**.
+platform-agnostic engine (`web/bridge-core.mjs`) to a pluggable output **sink**.
 
 ```bash
 node bridge.mjs --sink dry-run               # print mapped events, inject nothing (try it first)
@@ -152,7 +160,7 @@ node bridge.mjs --simulate frames.json --sink dry-run   # replay recorded frames
 web/access-protocol.mjs   shared, I/O-free protocol (parse/build/CRC/enums) — used by both tools
 web/profile-library.mjs   shared, I/O-free profile sharing + preset library (used by the web tool)
 lib/hid-node.mjs          node-hid transport (Node CLI only)
-lib/bridge-core.mjs       PC bridge: pure input->output mapping engine
+web/bridge-core.mjs       PC bridge: pure input->output mapping engine
 lib/bridge-sinks.mjs      PC bridge: output sinks (dry-run, xdotool, uinput)
 lib/uinput-helper.py      PC bridge: stdlib-only virtual device for the uinput sink
 cli.mjs                   command-line tool (profiles)

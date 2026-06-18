@@ -11,7 +11,7 @@
 //   node bridge.mjs --simulate frames.json --sink dry-run   # replay (no hardware)
 //
 import { readFileSync } from "node:fs";
-import { BridgeEngine, decodeInput, DEFAULT_MAPPING } from "./lib/bridge-core.mjs";
+import { BridgeEngine, decodeInput, DEFAULT_MAPPING } from "./web/bridge-core.mjs";
 import { makeSink } from "./lib/bridge-sinks.mjs";
 
 function parseArgs(argv) {
@@ -46,7 +46,7 @@ Sinks:
   uinput         Virtual gamepad/keyboard via /dev/uinput (Linux; needs access)
 
 Options:
-  --config <file>     JSON mapping (see DEFAULT_MAPPING in lib/bridge-core.mjs)
+  --config <file>     JSON mapping (see DEFAULT_MAPPING in web/bridge-core.mjs)
   --simulate <file>   Replay recorded input frames instead of reading hardware
   --device <i|path>   Select controller (default 0)
   --display <:N>      X display for xdotool (default $DISPLAY or :0)

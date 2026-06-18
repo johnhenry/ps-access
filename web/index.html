@@ -199,6 +199,10 @@
   /* Real focusable controls (buttons) keep a standard keyboard-focus ring. */
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
+  /* Key Bridge: highlight the option whose physical button is currently pressed. */
+  .item.physdown { color: var(--ok); }
+  .item.physdown .lab { text-shadow: 0 0 14px rgba(69,210,154,.5); }
+
   /* Respect users who ask for less motion: kill the animated wave + all transitions. */
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
