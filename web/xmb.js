@@ -435,7 +435,7 @@ function activate() {
   if (!it) return;
   blip(660);
   if (it.drill) {
-    if (!activeProfile()) { toast("Connect a controller to edit a profile (the Key Bridge & Library work without one)"); return; }
+    if (!activeProfile()) { toast("Connect a controller to edit a profile — the Key Bridge works without one"); return; }
     nav.drill = { key: it.key, index: 0 }; render(); return;
   }
   switch (it.action) {
