@@ -1,0 +1,58 @@
+name: Publish to npm
+
+# Publishes on a version bump: on every push to main it compares package.json's version
+# to what's on npm and publishes only if it's new. No-op until the NPM_TOKEN secret is set.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write   # to push the release tag
+  id-token: write   # for npm provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Resolve version + check npm
+        id: v
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          if npm view "$NAME@$VER" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to npm
+        if: env.HAS_NPM_TOKEN == 'true' && steps.v.outputs.exists == 'false'
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Tag the release
+        if: env.HAS_NPM_TOKEN == 'true' && steps.v.outputs.exists == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.v.outputs.ver }}"
+          git push origin "v${{ steps.v.outputs.ver }}"
+
+      - name: Notes
+        run: |
+          if [ "$HAS_NPM_TOKEN" != "true" ]; then
+            echo "⚠️ NPM_TOKEN secret not set — add it to enable publishing." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "Package: ${{ steps.v.outputs.name }}@${{ steps.v.outputs.ver }} · already on npm: ${{ steps.v.outputs.exists }}" >> "$GITHUB_STEP_SUMMARY"
