@@ -127,10 +127,22 @@ node bridge.mjs --simulate frames.json --sink dry-run   # replay recorded frames
   ```
 - Mapping config example (`my-map.json`):
   ```json
-  { "buttons": { "8": "space", "0": "mouse1" },
+  { "buttons": {
+      "8": "space",
+      "0": "mouse1",
+      "1": "ctrl+s",
+      "2": ["ctrl+c", "ctrl+v"]
+    },
     "stick": { "mode": "mouse" }, "mouse": { "speed": 22 } }
   ```
   `stick.mode` is `keys` (arrows/WASD), `mouse` (relative pointer), or `axis` (gamepad).
+- A button value can be:
+  - a single key — **held** while the button is held (`"space"`, `"a"`, `"mouse1"`);
+  - a **chord** — `"ctrl+s"` — fired once on press (modifiers held around the key);
+  - a **macro** — `["ctrl+c", "ctrl+v"]` or `["g", "i"]` — a sequence fired once on press.
+
+  Chords and macros make a single accessible switch trigger a complex action that would
+  otherwise need several simultaneous or sequential presses.
 
 > Verified with simulated input on Linux; on-hardware verification is pending a physical unit.
 
