@@ -10,9 +10,16 @@
 //   node bridge.mjs --config my-map.json           # custom mapping
 //   node bridge.mjs --simulate frames.json --sink dry-run   # replay (no hardware)
 //
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import readline from "node:readline";
 import { BridgeEngine, decodeInput, DEFAULT_MAPPING } from "./web/bridge-core.mjs";
+import {
+  PHYS_LABELS, STICK_MODES, STICK_DIRS, defaultBridgeMap, displayValue, toConfigJSON, keypressToValue,
+} from "./web/bridge-map.mjs";
 import { makeSink } from "./lib/bridge-sinks.mjs";
+
+// Don't crash if our output is piped into something that closes early (e.g. `| head`).
+process.stdout.on("error", (e) => { if (e.code === "EPIPE") process.exit(0); });
 
 function parseArgs(argv) {
   const o = { sink: "dry-run", rate: 60, _: [] };
@@ -24,6 +31,7 @@ function parseArgs(argv) {
     else if (a === "--device" || a === "-d") o.device = argv[++i];
     else if (a === "--display") o.display = argv[++i];
     else if (a === "--rate") o.rate = Number(argv[++i]);
+    else if (a === "--out" || a === "-o") o.out = argv[++i];
     else if (a === "--help" || a === "-h") o.help = true;
     else o._.push(a);
   }
@@ -38,7 +46,14 @@ function loadMapping(file) {
 
 const HELP = `ps-access bridge — drive a PC with the Access Controller (USB-C)
 
-Usage: node bridge.mjs [--sink <name>] [options]
+Usage:
+  node bridge.mjs [--sink <name>] [options]     run the bridge (live or --simulate)
+  node bridge.mjs edit [--config f] [--out f]   interactive press-to-bind key editor
+  node bridge.mjs set <target=value>... [--out f]   set mappings non-interactively
+  node bridge.mjs show [--config f]             print the resolved config JSON
+
+edit/set targets: 0..9 (buttons), stick.mode, stick.up/down/left/right, mouse.speed
+  e.g.  node bridge.mjs set 0=ctrl+s 8=space 2=ctrl+c,ctrl+v stick.mode=mouse --out my-map.json
 
 Sinks:
   dry-run        Print events only (default; no OS input)
@@ -96,9 +111,112 @@ async function runLive(opts, engine, sink) {
   await new Promise(() => {}); // run until signal
 }
 
+// ---- config editing (no controller / node-hid needed) ----
+
+// Load a saved config into a full editable map (fills unset buttons, merges stick/mouse).
+function loadEditMap(file) {
+  const base = defaultBridgeMap();
+  if (!file) return base;
+  try {
+    const j = JSON.parse(readFileSync(file, "utf8"));
+    const m = j.mapping || j;
+    if (m.buttons) for (const k of Object.keys(base.buttons)) if (m.buttons[k] != null) base.buttons[k] = m.buttons[k];
+    if (m.stick) base.stick = { ...base.stick, ...m.stick };
+    if (m.mouse) base.mouse = { ...base.mouse, ...m.mouse };
+  } catch { /* treat as a new file */ }
+  return base;
+}
+
+function applySet(map, target, value) {
+  const val = value.includes(",") ? value.split(",").map((s) => s.trim()) : value; // comma -> macro
+  if (/^\d+$/.test(target)) { map.buttons[target] = val; return; }                  // 0..9 -> button
+  if (target === "stick.mode") { map.stick.mode = value; return; }
+  if (target.startsWith("stick.")) { map.stick[target.slice(6)] = val; return; }
+  if (target.startsWith("mouse.")) { map.mouse[target.slice(6)] = isNaN(+value) ? value : +value; return; }
+  throw new Error(`unknown target "${target}" (use 0..9, stick.mode, stick.up.., mouse.speed)`);
+}
+
+function showConfig(opts) {
+  console.log(toConfigJSON(loadEditMap(opts.config)));
+}
+
+function setConfig(opts) {
+  const assigns = opts._.slice(1);
+  if (!assigns.length) throw new Error('usage: set <target=value>...  e.g. set 0=ctrl+s 8=space stick.mode=mouse');
+  const map = loadEditMap(opts.config);
+  for (const a of assigns) {
+    const m = a.match(/^([^=]+)=(.*)$/);
+    if (!m) throw new Error(`bad assignment "${a}" (want target=value)`);
+    applySet(map, m[1].trim(), m[2].trim());
+  }
+  const out = opts.out || opts.config || "ps-access-bridge.json";
+  writeFileSync(out, toConfigJSON(map));
+  console.log(`wrote ${out}\n`);
+  console.log(toConfigJSON(map));
+}
+
+// Interactive press-to-bind editor — the CLI twin of the web Key Bridge blade.
+function editConfig(opts) {
+  if (!process.stdin.isTTY) throw new Error("`edit` needs an interactive terminal — use `set`/`show` for scripting.");
+  const map = loadEditMap(opts.config);
+  const out = opts.out || opts.config || "ps-access-bridge.json";
+  let sel = 0, capturing = false, note = "";
+
+  const targets = () => {
+    const t = PHYS_LABELS.map((label, i) => ({ type: "button", i, label, get: () => map.buttons[i] }));
+    t.push({ type: "stickmode", label: "Stick mode", get: () => map.stick.mode });
+    if (map.stick.mode === "keys") for (const dir of STICK_DIRS) t.push({ type: "stick", dir, label: "Stick " + dir, get: () => map.stick[dir] });
+    return t;
+  };
+  const assign = (t, v) => { if (t.type === "button") map.buttons[t.i] = v; else if (t.type === "stick") map.stick[t.dir] = v; };
+  const render = () => {
+    const list = targets();
+    let s = "\x1b[2J\x1b[H\n  ps-access bridge — key editor\n";
+    s += "  ↑/↓ select · Enter bind (or cycle stick mode) · Del clear · s save · q quit\n\n";
+    list.forEach((t, idx) => { s += `  ${idx === sel ? "\x1b[36m▸" : " "} ${t.label.padEnd(13)} ${displayValue(t.get())}\x1b[0m\n`; });
+    s += capturing ? "\n  \x1b[33m▶ press a key to bind…  (Esc cancels)\x1b[0m\n" : `\n  saving to: ${out}${note ? "   " + note : ""}\n`;
+    process.stdout.write(s);
+  };
+
+  readline.emitKeypressEvents(process.stdin);
+  process.stdin.setRawMode(true);
+  process.stdin.resume();
+  render();
+  return new Promise((resolve) => {
+    const quit = () => { process.stdin.setRawMode(false); process.stdin.pause(); process.stdout.write("\n"); resolve(); };
+    process.stdin.on("keypress", (_str, key) => {
+      const list = targets();
+      const t = list[Math.min(sel, list.length - 1)];
+      if (capturing) {
+        if (key.name === "escape") { capturing = false; note = "cancelled"; }
+        else if (key.name === "delete") { assign(t, "nothing"); capturing = false; writeFileSync(out, toConfigJSON(map)); note = "cleared + saved"; }
+        else { const v = keypressToValue(key); if (v) { assign(t, v); capturing = false; writeFileSync(out, toConfigJSON(map)); note = "bound + saved"; } else return; }
+        render(); return;
+      }
+      if (key.name === "up") { sel = Math.max(0, sel - 1); note = ""; render(); }
+      else if (key.name === "down") { sel = Math.min(list.length - 1, sel + 1); note = ""; render(); }
+      else if (key.name === "return") {
+        if (t.type === "stickmode") { map.stick.mode = STICK_MODES[(STICK_MODES.indexOf(map.stick.mode) + 1) % STICK_MODES.length]; writeFileSync(out, toConfigJSON(map)); note = "saved"; }
+        else { capturing = true; note = ""; }
+        render();
+      }
+      else if (key.name === "s") { writeFileSync(out, toConfigJSON(map)); note = "saved " + out; render(); }
+      else if (key.name === "q" || (key.ctrl && key.name === "c")) quit();
+    });
+  });
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (opts.help) { console.log(HELP); return; }
+  const sub = opts._[0];
+  try {
+    if (sub === "edit") return await editConfig(opts);
+    if (sub === "set") return setConfig(opts);
+    if (sub === "show") return showConfig(opts);
+  } catch (e) { console.error("error:", e.message); process.exit(1); }
+
+  // default: run the bridge
   const engine = new BridgeEngine(loadMapping(opts.config));
   const sink = makeSink(opts.sink, { display: opts.display });
   try {

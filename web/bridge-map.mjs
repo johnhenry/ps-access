@@ -37,6 +37,30 @@ export function keyEventToValue(e) {
   return parts.join("+");
 }
 
+// Translate a Node readline "keypress" event (terminal) into a bridge value — the CLI
+// equivalent of keyEventToValue. key = { name, ctrl, meta, shift, sequence }.
+export function keypressToValue(key) {
+  if (!key) return null;
+  let base = TERM_NAME[key.name];
+  if (!base) {
+    if (key.name && /^f\d+$/.test(key.name)) base = key.name.toUpperCase();
+    else if (key.name && key.name.length === 1) base = key.name.toLowerCase();
+    else if (key.sequence && key.sequence.length === 1 && key.sequence >= " ") base = key.sequence.toLowerCase();
+  }
+  if (!base) return null;
+  const parts = [];
+  if (key.ctrl) parts.push("ctrl");
+  if (key.meta) parts.push("alt");
+  if (key.shift && base !== "shift") parts.push("shift");
+  parts.push(base);
+  return parts.join("+");
+}
+const TERM_NAME = {
+  return: "Return", enter: "Return", space: "space", tab: "Tab", backspace: "BackSpace",
+  escape: "Escape", up: "Up", down: "Down", left: "Left", right: "Right",
+  delete: "Delete", home: "Home", end: "End", pageup: "Prior", pagedown: "Next",
+};
+
 const KEYSYM = {
   " ": "space", "Spacebar": "space", "Enter": "Return", "Tab": "Tab", "Backspace": "BackSpace",
   "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right",

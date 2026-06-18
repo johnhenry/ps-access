@@ -152,6 +152,22 @@ node bridge.mjs --simulate frames.json --sink dry-run   # replay recorded frames
   Chords and macros make a single accessible switch trigger a complex action that would
   otherwise need several simultaneous or sequential presses.
 
+### Building a mapping
+
+Author the config visually in the web **Key Bridge** blade, or from the terminal:
+
+```bash
+node bridge.mjs edit                         # interactive press-to-bind editor (TTY)
+node bridge.mjs edit --config my-map.json --out my-map.json
+node bridge.mjs set 0=ctrl+s 8=space 2=ctrl+c,ctrl+v stick.mode=mouse --out my-map.json
+node bridge.mjs show --config my-map.json    # print the resolved config
+```
+
+- **edit** is the CLI twin of the web editor: ↑/↓ to select a button/stick row, **Enter** to
+  bind (then press the key you want), **Del** to clear, **s** to save, **q** to quit.
+- **set** targets: `0`..`9` (buttons), `stick.mode`, `stick.up/down/left/right`, `mouse.speed`;
+  a comma-separated value (`2=ctrl+c,ctrl+v`) becomes a macro. These commands need no controller.
+
 > Verified with simulated input on Linux; on-hardware verification is pending a physical unit.
 
 ## Layout
