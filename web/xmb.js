@@ -619,27 +619,46 @@ async function load() {
 async function connectOnce() {
   try {
     const before = controllers.length;
-    const ds = await requestControllers();
-    if (!ds.length) { toast("No controller selected", 2500); return; }
-    await addDevices(ds);
-    toast(controllers.length > before ? "Controller connected" : "Controller already connected", 2000);
+    await requestControllers();                      // user grants one in the chooser (this gesture)
+    await addDevices(await grantedControllers());    // reconcile: add every granted controller not yet present
+    const added = controllers.length - before;
+    if (added > 0) toast(added > 1 ? `${added} controllers connected` : "Controller connected", 2200);
+    else toast("That one's already connected — to add another, pick the *other* “Access Controller” in the chooser.", 5500);
   } catch (e) { toast(String(e.message || e), 4000); }
 }
-async function addDevices(devices) {
+
+// Serialize addDevices: granting a device in the chooser fires the `connect` event, whose handler
+// also calls addDevices — running both concurrently on the same new device interleaves its
+// feature-report reads and corrupts the add. Chaining guarantees one batch finishes before the next.
+let _addChain = Promise.resolve();
+function addDevices(devices) {
+  const run = _addChain.then(() => _addDevices(devices));
+  _addChain = run.catch(() => {});  // keep the chain alive even if a batch throws
+  return run;
+}
+async function _addDevices(devices) {
+  let added = 0;
   for (const device of devices) {
     if (controllers.some((c) => c.device === device)) continue;
-    await ensureOpen(device);
-    device.addEventListener("inputreport", onInputReport); // physical buttons + stick, live
-    const profiles = [];
-    for (let s = 1; s <= PROFILE_COUNT; s++) {
-      const p = parseProfile(await readProfileRaw(device, s));
-      p._physOrient = p.ports[0].kind === "stick" ? p.ports[0].orientation : 3;
-      profiles.push(p);
+    try {
+      await ensureOpen(device);
+      const profiles = [];
+      for (let s = 1; s <= PROFILE_COUNT; s++) {
+        const p = parseProfile(await readProfileRaw(device, s));
+        p._physOrient = p.ports[0].kind === "stick" ? p.ports[0].orientation : 3;
+        profiles.push(p);
+      }
+      if (controllers.some((c) => c.device === device)) continue; // defensive: added while awaiting
+      device.addEventListener("inputreport", onInputReport);       // attach only after a clean read
+      controllers.push({ device, name: `Controller ${controllers.length + 1}`, profiles });
+      added++;
+    } catch (e) {
+      toast(`Couldn't read a controller: ${e.message || e}`, 4000);
     }
-    controllers.push({ device, name: `Controller ${controllers.length + 1}`, profiles });
   }
   updateDeviceStatus();
   render();
+  return added;
 }
 function updateDeviceStatus() {
   const c = controllers[activeCtrl];
