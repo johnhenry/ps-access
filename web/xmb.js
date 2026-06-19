@@ -20,34 +20,63 @@ import {
 const $ = (s) => document.querySelector(s);
 
 // ============================ state ============================
-let controllers = []; // { device, name, profiles:[obj x3] }
-let activeCtrl = 0;
-// nav: col = blade index, row = vertical item index, drill = { key, index } | null
-const nav = { col: 1, row: 0, drill: null };
+// Each controller carries its own UI state now (no global activeCtrl): _activeProfile = active
+// on-device profile slot (0-based, from byte 39); _lastSlot = last profile cell focused in its lane.
+let controllers = []; // { device, name, profiles:[x3], _activeProfile:null, _lastSlot:0 }
+// nav: a 2D grid. gr/gc = focused cell; inCell = that cell's menu is open; row = item index in the
+// menu; drill = { key, index } when inside a profile sub-section (Buttons/Stick/Ports/Tuning).
+const nav = { gr: 0, gc: 0, inCell: false, row: 0, drill: null };
 let soundOn = false;
-let phys = new Set();      // physically-pressed button indices (0-7 perimeter, 8 center, 9 stick-click)
-let liveAxes = [0, 0];     // physical stick, -1..1
+let phys = new Set();      // union of physically-pressed buttons across all controllers (0-9)
+let liveAxes = [0, 0];     // union physical stick, -1..1
 let lastInputAt = 0;
 let renaming = false;
 let monitorMode = false;   // full-screen live input monitor open
 let monitorArm = false;    // warning/confirm gate shown before entering the monitor
 let warnSel = 0;           // highlighted option on the confirm gate (0 = Start, 1 = Cancel)
-let lastProfileSlot = 0;   // slot of the most recently focused profile blade — what the Save blade acts on
-let deviceProfile = null;  // active on-device profile slot (0-based, from input-report byte 39); null until known
 let pendingShare = null;   // a portable profile decoded from the URL hash, awaiting "Apply shared"
 let bridgeMap = loadBridgeMap();  // PC input-bridge mapping edited in the Key Bridge blade
 let capturing = null;      // { kind:"button", idx } | { kind:"stick", dir } while listening for a key
 
-const BLADES = [
-  { key: "controllers", label: "Controllers", kind: "controllers" },
-  { key: "p1", label: "Profile 1", kind: "profile", slot: 0 },
-  { key: "p2", label: "Profile 2", kind: "profile", slot: 1 },
-  { key: "p3", label: "Profile 3", kind: "profile", slot: 2 },
-  { key: "save", label: "Save", kind: "save", glyph: "▣" },
-  { key: "library", label: "Library", kind: "library" },
-  { key: "bridge", label: "Key Bridge", kind: "bridge" },
-  { key: "monitor", label: "Monitor", kind: "monitor" },
-];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// The navigable grid, rebuilt from the live controller list: two global tool rows, one lane per
+// controller (head · P1 · P2 · P3 · Save · Library · Disconnect), then the Connect row.
+function grid() {
+  const rows = [
+    { cells: [{ kind: "bridge", label: "Key Bridge" }] },
+    { cells: [{ kind: "monitor", label: "Monitor" }] },
+  ];
+  controllers.forEach((c, ci) => rows.push({ ctrl: ci, cells: [
+    { kind: "head", ctrl: ci },
+    { kind: "profile", ctrl: ci, slot: 0 },
+    { kind: "profile", ctrl: ci, slot: 1 },
+    { kind: "profile", ctrl: ci, slot: 2 },
+    { kind: "save", ctrl: ci },
+    { kind: "library", ctrl: ci },
+    { kind: "disconnect", ctrl: ci },
+  ] }));
+  rows.push({ cells: [{ kind: "connect", label: "＋ Connect a controller…" }] });
+  return rows;
+}
+function cellAt(gr, gc) {
+  const g = grid();
+  const row = g[clamp(gr, 0, g.length - 1)];
+  return row.cells[clamp(gc, 0, row.cells.length - 1)];
+}
+function focusedCell() { return cellAt(nav.gr, nav.gc); }
+function cellCtrl(cell = focusedCell()) { return cell.ctrl != null ? controllers[cell.ctrl] : null; }
+function cellProfile(cell = focusedCell()) {
+  return cell.kind === "profile" ? (controllers[cell.ctrl]?.profiles[cell.slot] || null) : null;
+}
+// The slot Save/Library act on in a lane: the last profile cell focused there (default 0).
+function laneSlot(ci) { return controllers[ci]?._lastSlot ?? 0; }
+// Keep focus inside the current grid (after add/remove/disconnect).
+function clampNav() {
+  const g = grid();
+  nav.gr = clamp(nav.gr, 0, g.length - 1);
+  nav.gc = clamp(nav.gc, 0, g[nav.gr].cells.length - 1);
+}
 
 function loadBridgeMap() {
   try { const s = localStorage.getItem("psaccess.bridgeMap"); if (s) return JSON.parse(s); } catch { /* ignore */ }
@@ -66,6 +95,12 @@ const CONTROLLER_ICON = `<svg class="ctrl-icon" viewBox="0 0 120 92" xmlns="http
   <circle class="seg" cx="91" cy="43" r="4.2"/>
   <circle class="seg" cx="73" cy="43" r="4.2"/>
   <circle class="seg" cx="82" cy="52" r="4.2"/>
+</svg>`;
+
+// Stylized "eject / disconnect" icon for the per-lane Disconnect cell — same `.seg` style.
+const DISCONNECT_ICON = `<svg class="save-icon" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
+  <path class="seg" d="M48 22 L70 50 H26 Z"/>
+  <rect class="seg" x="26" y="60" width="44" height="12" rx="3"/>
 </svg>`;
 
 // Stylized, generic save (floppy-disk) icon for the Save blade — same `.seg` segment style.
@@ -98,28 +133,24 @@ const BRIDGE_ICON = `<svg class="ctrl-icon" viewBox="0 0 120 92" xmlns="http://w
   <rect class="seg" x="40" y="53" width="40" height="10" rx="2"/>
 </svg>`;
 
-function activeProfile() {
-  const b = BLADES[nav.col];
-  if (b?.kind === "profile") return controllers[activeCtrl]?.profiles[b.slot] || null;
-  return controllers[activeCtrl]?.profiles[0] || null;
-}
-
-// Apply current physical button state to ALL on-screen controller renders (any orientation).
+// Apply live physical state: every controller identity render (focused-row head blade + the dimmed
+// row anchors) shows ITS controller's own input; the drill hero shows the focused controller's.
 function updateLive() {
-  for (const el of document.querySelectorAll("#stage svg [data-btn]")) {
-    el.classList.toggle("on", phys.has(+el.getAttribute("data-btn")));
+  for (const head of document.querySelectorAll("[data-ctrl]")) {
+    const ci = +head.dataset.ctrl;
+    const st = controllers[ci] && ctrlState.get(controllers[ci].device);
+    const btns = st ? st.buttons : new Set();
+    const ax = st ? st.axes : [0, 0];
+    for (const el of head.querySelectorAll("svg [data-btn]")) el.classList.toggle("on", btns.has(+el.getAttribute("data-btn")));
+    const th = head.querySelector("svg .thumb");
+    if (th) { th.setAttribute("cx", (+th.dataset.bx + ax[0] * M.THUMB_R).toFixed(1)); th.setAttribute("cy", (+th.dataset.by + ax[1] * M.THUMB_R).toFixed(1)); }
   }
-  for (const th of document.querySelectorAll("#stage svg .thumb")) {
-    // raw axes — the live thumb always reflects the physical stick, regardless of the
-    // displayed orientation (which only relocates where the stick is drawn)
-    const bx = +th.dataset.bx, by = +th.dataset.by;
-    th.setAttribute("cx", (bx + liveAxes[0] * M.THUMB_R).toFixed(1));
-    th.setAttribute("cy", (by + liveAxes[1] * M.THUMB_R).toFixed(1));
-  }
-  // Key Bridge: light up the row for whichever physical button is being pressed.
-  for (const row of document.querySelectorAll("#items .item[data-phys]")) {
-    row.classList.toggle("physdown", phys.has(+row.dataset.phys));
-  }
+  const hero = $("#hero");
+  for (const el of hero.querySelectorAll("svg [data-btn]")) el.classList.toggle("on", phys.has(+el.getAttribute("data-btn")));
+  const hth = hero.querySelector("svg .thumb");
+  if (hth) { hth.setAttribute("cx", (+hth.dataset.bx + liveAxes[0] * M.THUMB_R).toFixed(1)); hth.setAttribute("cy", (+hth.dataset.by + liveAxes[1] * M.THUMB_R).toFixed(1)); }
+  // Key Bridge: light up the menu row for whichever physical button is being pressed.
+  for (const row of document.querySelectorAll("#items .item[data-phys]")) row.classList.toggle("physdown", phys.has(+row.dataset.phys));
 }
 
 // ============================ value spinners ============================
@@ -192,9 +223,11 @@ function drillRows(profile, key) {
 }
 
 // vertical items for the focused blade
-function bladeItems(blade) {
-  if (blade.kind === "profile") {
-    const isActive = blade.slot === deviceProfile;
+// Items shown when a cell's menu is opened. `cell` carries its controller (cell.ctrl) and, for
+// profiles, the slot — so everything targets the right controller without a global activeCtrl.
+function bladeItems(cell) {
+  if (cell.kind === "profile") {
+    const isActive = cell.slot === controllers[cell.ctrl]?._activeProfile;
     return [
       { key: "buttons", label: "Buttons", drill: true },
       { key: "stick", label: "Built-in stick", drill: true },
@@ -202,37 +235,34 @@ function bladeItems(blade) {
       { key: "tuning", label: "Stick tuning", drill: true },
       { key: "rename", label: "Rename profile", action: "rename" },
       { key: "setactive", label: isActive ? "✓ Active on controller" : "Set active on controller", action: "setActive" },
-      { key: "save", label: "Save to controller", action: "save" },
+      { key: "save", label: `Save Profile ${cell.slot + 1} to controller`, action: "save" },
     ];
   }
-  if (blade.kind === "controllers") {
-    // Always offer a manual connect — works as first-connect and as a reconnect/grant fallback.
+  if (cell.kind === "save") {
+    const ci = cell.ctrl;
     return [
-      ...controllers.map((c, i) => ({ key: "ctrl" + i, label: c.name + (i === activeCtrl ? "  ✓" : ""), action: "selectCtrl", ctrl: i })),
-      { key: "connect", label: "＋ Connect a controller…", action: "connect" },
-    ];
-  }
-  if (blade.kind === "save") {
-    return [
-      { key: "savep", label: `Save Profile ${lastProfileSlot + 1}` + (controllers[activeCtrl]?.profiles[lastProfileSlot]?.name ? ` · ${controllers[activeCtrl].profiles[lastProfileSlot].name}` : ""), action: "save" },
+      { key: "save0", label: `Save Profile 1${nameSuffix(ci, 0)}`, action: "save", slot: 0 },
+      { key: "save1", label: `Save Profile 2${nameSuffix(ci, 1)}`, action: "save", slot: 1 },
+      { key: "save2", label: `Save Profile 3${nameSuffix(ci, 2)}`, action: "save", slot: 2 },
       { key: "saveall", label: "Save all 3 profiles", action: "saveAll" },
       { key: "reload", label: "Reload from controller", action: "reload" },
     ];
   }
-  if (blade.kind === "library") {
+  if (cell.kind === "library") {
+    const slot = laneSlot(cell.ctrl);
     const items = [];
     if (pendingShare) {
-      items.push({ key: "applyshared", label: `Apply shared profile${pendingShare.name ? ` · ${pendingShare.name}` : ""} → Profile ${lastProfileSlot + 1}`, action: "applyShared" });
+      items.push({ key: "applyshared", label: `Apply shared profile${pendingShare.name ? ` · ${pendingShare.name}` : ""} → Profile ${slot + 1}`, action: "applyShared" });
     }
     items.push(
-      { key: "export", label: `Export Profile ${lastProfileSlot + 1} (download file)`, action: "export" },
-      { key: "copylink", label: `Copy share link for Profile ${lastProfileSlot + 1}`, action: "copylink" },
-      { key: "import", label: `Import from file → Profile ${lastProfileSlot + 1}`, action: "import" },
+      { key: "export", label: `Export Profile ${slot + 1} (download file)`, action: "export" },
+      { key: "copylink", label: `Copy share link for Profile ${slot + 1}`, action: "copylink" },
+      { key: "import", label: `Import from file → Profile ${slot + 1}`, action: "import" },
     );
-    PRESETS.forEach((p, i) => items.push({ key: "preset" + i, label: `Preset · ${p.name}`, action: "applyPreset", preset: i }));
+    PRESETS.forEach((p, i) => items.push({ key: "preset" + i, label: `Preset · ${p.name} → Profile ${slot + 1}`, action: "applyPreset", preset: i }));
     return items;
   }
-  if (blade.kind === "bridge") {
+  if (cell.kind === "bridge") {
     const cap = (c) => (capturing && capturing.kind === c.kind && capturing.idx === c.idx && capturing.dir === c.dir);
     const items = [];
     PHYS_LABELS.forEach((lab, i) => {
@@ -256,80 +286,112 @@ function bladeItems(blade) {
     );
     return items;
   }
-  if (blade.kind === "monitor") {
-    return [{ key: "openmon", label: "Open live monitor", action: "monitor" }];
-  }
   return [];
 }
-
-// ============================ rendering ============================
-// The profile slot the indicator/monitor reflect: the controller's *active* profile (set with the
-// device's profile button, read live from the input report) when known, else the focused UI profile.
-function shownProfileSlot() {
-  return deviceProfile ?? lastProfileSlot;
-}
-// Top-bar profile context (under the controller name) — shows the active on-device profile.
-function updateProfileTag() {
-  const el = $("#mon-prof");
-  if (!el) return;
-  const slot = shownProfileSlot();
-  const prof = controllers[activeCtrl]?.profiles[slot];
-  if (!prof) { el.innerHTML = ""; return; }
-  const st = prof.ports[0];
-  const orient = st.kind === "stick" ? st.orientation : 3;
-  el.innerHTML = `<b>Profile ${slot + 1}</b> · ` +
-    (prof.name ? `${prof.name} · ` : "") + ORIENTATIONS[orient];
+function nameSuffix(ci, slot) {
+  const n = controllers[ci]?.profiles[slot]?.name;
+  return n ? ` · ${n}` : "";
 }
 
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function cellLabel(cell) {
+  switch (cell.kind) {
+    case "bridge": return "Key Bridge";
+    case "monitor": return "Monitor";
+    case "connect": return "＋ Connect a controller…";
+    case "head": return controllers[cell.ctrl]?.name || "Controller";
+    case "profile": return `Profile ${cell.slot + 1}`;
+    case "save": return "Save";
+    case "library": return "Library";
+    case "disconnect": return "Disconnect";
+  }
+  return "";
+}
+const GLYPHS = { save: SAVE_ICON, monitor: MONITOR_ICON, library: LIBRARY_ICON, bridge: BRIDGE_ICON,
+                 connect: CONTROLLER_ICON, disconnect: DISCONNECT_ICON };
+// The big blade in the focused row's horizontal ribbon.
+function bladeInner(cell) {
+  if (cell.kind === "profile") {
+    const c = controllers[cell.ctrl];
+    const active = c && c._activeProfile === cell.slot;
+    const name = c?.profiles[cell.slot]?.name;
+    return `<div class="ic">${profileSVG(c?.profiles[cell.slot])}</div>` +
+      `<div class="label">${active ? "✓ " : ""}Profile ${cell.slot + 1}${name ? ` · ${esc(name)}` : ""}</div>`;
+  }
+  if (cell.kind === "head") {
+    const c = controllers[cell.ctrl];
+    return `<div class="ic">${profileSVG(c?.profiles[c?._activeProfile ?? 0])}</div>` +
+      `<div class="label">${esc(c?.name || "Controller")}</div>`;
+  }
+  return `<div class="ic"><div class="glyph">${GLYPHS[cell.kind] || ""}</div></div><div class="label">${cellLabel(cell)}</div>`;
+}
+// A row's vertical-axis identity (the dimmed anchor shown for non-focused rows).
+function rowName(row) { return cellCtrl(row.cells[0]) ? controllers[row.cells[0].ctrl].name : cellLabel(row.cells[0]); }
+function anchorIcon(row) {
+  const cell = row.cells[0];
+  if (cell.kind === "head") return profileSVG(controllers[cell.ctrl]?.profiles[controllers[cell.ctrl]?._activeProfile ?? 0]);
+  return `<div class="glyph">${GLYPHS[cell.kind] || ""}</div>`;
+}
+
+// XMB cross: a vertical column of row anchors (controllers + tools); the focused row's blades fan
+// out horizontally to the right; neighbors are dimmed and glide vertically.
 function render() {
-  if (BLADES[nav.col]?.kind === "profile") lastProfileSlot = BLADES[nav.col].slot;
-  updateProfileTag();
-  const bladesEl = $("#blades");
-  bladesEl.innerHTML = "";
-  BLADES.forEach((b, i) => {
-    const el = document.createElement("div");
-    el.className = "blade" + (i === nav.col ? " focused" : "");
-    const icon = document.createElement("div");
-    icon.className = "icon";
-    if (b.kind === "profile") icon.innerHTML = profileSVG(controllers[activeCtrl]?.profiles[b.slot]);
-    else {
-      const g = document.createElement("div"); g.className = "glyph";
-      if (b.kind === "controllers") g.innerHTML = CONTROLLER_ICON;
-      else if (b.kind === "save") g.innerHTML = SAVE_ICON;
-      else if (b.kind === "monitor") g.innerHTML = MONITOR_ICON;
-      else if (b.kind === "library") g.innerHTML = LIBRARY_ICON;
-      else if (b.kind === "bridge") g.innerHTML = BRIDGE_ICON;
-      else g.textContent = b.glyph;
-      icon.append(g);
+  const fc = focusedCell();
+  if (fc.kind === "profile" && controllers[fc.ctrl]) controllers[fc.ctrl]._lastSlot = fc.slot;
+  setWaveProfile(cellCtrl(fc)?._activeProfile ?? null); // tint the wave to the focused lane's active profile
+  updateDeviceStatus();
+  const wrap = $("#blades");
+  wrap.innerHTML = "";
+  grid().forEach((row, ri) => {
+    const off = ri - nav.gr;
+    const rowEl = document.createElement("div");
+    rowEl.className = "row" + (off === 0 ? " focused" : "");
+    rowEl.style.setProperty("--off", off);
+    rowEl.style.opacity = off === 0 ? "1" : String(Math.max(0.16, 0.5 - 0.13 * Math.abs(off)));
+    if (off === 0) {
+      const ribbon = document.createElement("div");
+      ribbon.className = "ribbon";
+      row.cells.forEach((cell, ci) => {
+        const el = document.createElement("div");
+        el.className = "blade k-" + cell.kind + (ci === nav.gc ? " focused" : "");
+        if (cell.kind === "head") el.dataset.ctrl = cell.ctrl;
+        el.innerHTML = bladeInner(cell);
+        el.onclick = () => { nav.gc = ci; nav.inCell = false; nav.drill = null; openCell(); };
+        ribbon.append(el);
+      });
+      rowEl.append(ribbon);
+    } else {
+      const anchor = document.createElement("div");
+      anchor.className = "anchor";
+      if (row.cells[0].kind === "head") anchor.dataset.ctrl = row.cells[0].ctrl;
+      anchor.innerHTML = `<div class="ic">${anchorIcon(row)}</div><div class="label">${esc(rowName(row))}</div>`;
+      anchor.onclick = () => { nav.gr = ri; nav.gc = clamp(nav.gc, 0, row.cells.length - 1); nav.inCell = false; nav.drill = null; render(); };
+      rowEl.append(anchor);
     }
-    const lab = document.createElement("div");
-    lab.className = "label";
-    lab.textContent = b.label;
-    el.append(icon, lab);
-    bladesEl.append(el);
+    wrap.append(rowEl);
   });
-
-  bladesEl.classList.toggle("drilled", !!nav.drill);
+  wrap.classList.toggle("incell", nav.inCell || !!nav.drill);
   renderItems();
   renderHero();
   renderCrumb();
   layout();
-  updateLive(); // re-apply live state to freshly built renders
+  updateLive();
   announce(describeNav());
 }
 
 function renderItems() {
   const wrap = $("#items");
   wrap.innerHTML = "";
+  const open = nav.inCell || nav.drill;
+  wrap.classList.toggle("show", !!open);
+  if (!open) return;
+  const cell = focusedCell();
   wrap.setAttribute("role", "listbox");
-  wrap.setAttribute("aria-label", BLADES[nav.col].label + (nav.drill ? " " + (DRILL_LABELS[nav.drill.key] || "") : "") + " options");
-  const blade = BLADES[nav.col];
+  wrap.setAttribute("aria-label", cellLabel(cell) + (nav.drill ? " " + (DRILL_LABELS[nav.drill.key] || "") : "") + " options");
   if (nav.drill) {
-    const profile = activeProfile();
-    const rows = drillRows(profile, nav.drill.key);
+    const rows = drillRows(cellProfile(cell), nav.drill.key);
     rows.forEach((r, i) => {
-      const v = r.get();
-      const disp = r.display(v);
+      const disp = r.display(r.get());
       const el = document.createElement("div");
       el.className = "item" + (i === nav.drill.index ? " sel" : "");
       el.setAttribute("role", "option");
@@ -340,25 +402,22 @@ function renderItems() {
       wrap.append(el);
     });
   } else {
-    const items = bladeItems(blade);
-    items.forEach((it, i) => {
+    bladeItems(cell).forEach((it, i) => {
       const el = document.createElement("div");
       el.className = "item" + (i === nav.row ? " sel" : "");
       el.setAttribute("role", "option");
       el.setAttribute("aria-selected", String(i === nav.row));
       if (it.phys != null) el.dataset.phys = it.phys; // Key Bridge: highlight when that button is pressed
       el.innerHTML = `<span class="chev">▸</span><span class="lab">${it.label}</span>`;
-      el.onclick = () => { nav.row = i; activate(); };
+      el.onclick = () => { nav.row = i; activateItem(); };
       wrap.append(el);
     });
   }
 }
 
 function renderHero() {
-  const blade = BLADES[nav.col];
   const hero = $("#hero");
-  // The blade itself is the render; the enlarged hero appears only when you drill in.
-  const profile = activeProfile();
+  const profile = cellProfile();
   if (!nav.drill || !profile) { hero.style.opacity = "0"; hero.innerHTML = ""; return; }
   const rows = drillRows(profile, nav.drill.key);
   const focus = rows[nav.drill.index]?.focus || null;
@@ -369,8 +428,8 @@ function renderHero() {
 const DRILL_LABELS = { buttons: "Buttons", stick: "Built-in stick", ports: "Expansion ports", tuning: "Stick tuning" };
 
 function renderCrumb() {
-  const blade = BLADES[nav.col];
-  let txt = blade.label;
+  const cell = focusedCell();
+  let txt = cellCtrl(cell) ? `${controllers[cell.ctrl].name} ›  ${cellLabel(cell)}` : cellLabel(cell);
   if (nav.drill) txt += " ›  " + (DRILL_LABELS[nav.drill.key] || "");
   $("#crumb").textContent = txt;
 }
@@ -390,68 +449,84 @@ function describeNav() {
   if (capturing) return "Listening — press a keyboard key to assign, Delete to clear, or Escape to cancel.";
   if (monitorMode) return "Live input monitor open, showing all connected controllers. Press Escape to exit.";
   if (monitorArm) return `Start the live monitor? ${warnSel === 0 ? "Start monitoring" : "Cancel"}, option ${warnSel + 1} of 2. Up or Down to choose, Enter to confirm.`;
-  const blade = BLADES[nav.col];
+  const cell = focusedCell();
+  const where = (cellCtrl(cell) ? controllers[cell.ctrl].name + ", " : "") + cellLabel(cell);
   if (nav.drill) {
-    const prof = activeProfile();
-    if (!prof) return `${blade.label}, ${DRILL_LABELS[nav.drill.key] || ""}. Connect a controller to edit.`;
+    const prof = cellProfile(cell);
+    if (!prof) return `${where}, ${DRILL_LABELS[nav.drill.key] || ""}`;
     const rows = drillRows(prof, nav.drill.key);
     const r = rows[nav.drill.index];
-    if (!r) return `${blade.label}, ${DRILL_LABELS[nav.drill.key] || ""}`;
+    if (!r) return `${where}, ${DRILL_LABELS[nav.drill.key] || ""}`;
     const disp = r.display(r.get());
-    return `${blade.label}, ${DRILL_LABELS[nav.drill.key] || ""}. ${r.label}: ${disp.name}. ${nav.drill.index + 1} of ${rows.length}. Left or Right to change, Backspace to go back.`;
+    return `${where}, ${DRILL_LABELS[nav.drill.key] || ""}. ${r.label}: ${disp.name}. ${nav.drill.index + 1} of ${rows.length}. Left or Right to change, Backspace to go back.`;
   }
-  const items = bladeItems(blade);
-  const it = items[nav.row];
-  const label = it ? it.label.replace(/\s+/g, " ").trim() : "";
-  return `${blade.label} section. ${label}. ${nav.row + 1} of ${items.length}.`;
+  if (nav.inCell) {
+    const items = bladeItems(cell);
+    const it = items[nav.row];
+    const label = it ? it.label.replace(/\s+/g, " ").trim() : "";
+    return `${where} menu. ${label}. ${nav.row + 1} of ${items.length}. Enter to choose, Backspace to go back.`;
+  }
+  const g = grid();
+  return `${where}. Row ${nav.gr + 1} of ${g.length}, column ${nav.gc + 1} of ${g[nav.gr].cells.length}. Enter to open.`;
 }
 
-// position the ribbon + item list to form the cross
+// Slide the focused row's ribbon so the focused blade glides to the focal column (XMB-style).
 function layout() {
-  const bladesEl = $("#blades");
-  const focused = bladesEl.children[nav.col];
-  if (!focused) return;
-  const crossX = window.innerWidth * 0.3;
-  const bx = focused.offsetLeft + focused.offsetWidth / 2;
-  bladesEl.style.transform = `translateX(${crossX - bx}px)`;
-
-  const items = $("#items");
-  const crossY = window.innerHeight * 0.38;
-  items.style.left = crossX + "px";
-  items.style.top = crossY + 150 + "px"; // list hangs below the blade
-  // keep the selected row visible without hiding earlier rows: only scroll once the list
-  // grows past a comfortable count
-  const selIdx = nav.drill ? nav.drill.index : nav.row;
-  const rowH = 42, visible = 9;
-  const scroll = Math.max(0, selIdx - (visible - 2)) * rowH;
-  items.style.transform = `translateY(${-scroll}px)`;
+  const ribbon = $("#blades .row.focused .ribbon");
+  const fb = $("#blades .blade.focused");
+  if (ribbon && fb) {
+    const bladesLeft = $("#blades").getBoundingClientRect().left;
+    const center = bladesLeft + fb.offsetLeft + fb.offsetWidth / 2; // layout position, ignores current transform
+    const focalX = window.innerWidth * 0.30;
+    ribbon.style.transform = `translateX(${(focalX - center).toFixed(1)}px)`;
+  }
+  if (nav.inCell || nav.drill) {
+    const sel = $("#items .item.sel");
+    if (sel) sel.scrollIntoView({ block: "nearest" });
+  }
 }
 
 // ============================ actions ============================
-function activate() {
-  const blade = BLADES[nav.col];
-  const items = bladeItems(blade);
-  const it = items[nav.row];
+// Grid-mode confirm: open the focused cell. Drillable cells (profile/save/library/bridge) show
+// their menu; the rest act directly.
+function openCell() {
+  const cell = focusedCell();
+  blip(660);
+  switch (cell.kind) {
+    case "profile":
+      if (!cellProfile(cell)) { toast("Connect a controller first"); return; }
+      // fallthrough
+    case "save": case "library": case "bridge":
+      nav.inCell = true; nav.row = 0; nav.drill = null; render(); break;
+    case "monitor": armMonitor(); break;
+    case "connect": connectOnce(); break;
+    case "head": startRenameController(cell.ctrl); break;
+    case "disconnect": disconnectController(cell.ctrl); break;
+  }
+}
+
+// Menu-mode confirm: act on the highlighted item of the open cell (its controller is cell.ctrl).
+function activateItem() {
+  const cell = focusedCell();
+  const ci = cell.ctrl;
+  const it = bladeItems(cell)[nav.row];
   if (!it) return;
   blip(660);
   if (it.drill) {
-    if (!activeProfile()) { toast("Connect a controller to edit a profile — the Key Bridge works without one"); return; }
+    if (!cellProfile(cell)) { toast("Connect a controller to edit a profile"); return; }
     nav.drill = { key: it.key, index: 0 }; render(); return;
   }
   switch (it.action) {
-    case "selectCtrl": activeCtrl = it.ctrl; nav.col = 1; nav.row = 0; render(); toast("Controller " + (it.ctrl + 1)); break;
-    case "rename": startRename(); break;
-    case "save": saveProfileFor(BLADES[nav.col].kind === "profile" ? BLADES[nav.col].slot : lastProfileSlot); break;
-    case "saveAll": saveAll(); break;
-    case "reload": reloadFromDevice(); break;
-    case "monitor": armMonitor(); break;
-    case "connect": connectOnce(); break;
-    case "setActive": setActiveFor(BLADES[nav.col].slot); break;
-    case "export": exportProfile(); break;
-    case "copylink": copyShareLink(); break;
-    case "import": importProfile(); break;
-    case "applyPreset": applyPresetToCurrent(it.preset); break;
-    case "applyShared": applySharedToCurrent(); break;
+    case "rename": startRenameProfile(ci, cell.slot); break;
+    case "save": saveProfileFor(ci, it.slot ?? cell.slot); break;
+    case "saveAll": saveAll(ci); break;
+    case "reload": reloadFromDevice(ci); break;
+    case "setActive": setActiveFor(ci, cell.slot); break;
+    case "export": exportProfile(ci); break;
+    case "copylink": copyShareLink(ci); break;
+    case "import": importProfile(ci); break;
+    case "applyPreset": applyPresetToCurrent(ci, it.preset); break;
+    case "applyShared": applySharedToCurrent(ci); break;
     case "capture": startCapture(it.cap); break;
     case "cycleStick": cycleStickMode(); break;
     case "bridgeReset": bridgeMap = defaultBridgeMap(); saveBridgeMap(); render(); toast("Bridge mapping reset to defaults"); break;
@@ -486,21 +561,21 @@ function cycleStickMode() {
 }
 
 // ============================ library / sharing ============================
-function libProfile() {
-  return controllers[activeCtrl]?.profiles[lastProfileSlot] || null;
+function libProfile(ci) {
+  return controllers[ci]?.profiles[laneSlot(ci)] || null;
 }
-function libSlotName() { return `Profile ${lastProfileSlot + 1}`; }
+function libSlotName(ci) { return `Profile ${laneSlot(ci) + 1}`; }
 
-function exportProfile() {
-  const p = libProfile();
+function exportProfile(ci) {
+  const p = libProfile(ci);
   if (!p) { toast("Connect a controller first"); return; }
-  const base = (p.name || libSlotName()).replace(/[^\w.-]+/g, "_");
+  const base = (p.name || libSlotName(ci)).replace(/[^\w.-]+/g, "_");
   downloadText(`${base}.ps-access.json`, toFileText(toPortable(p)));
-  toast(`Exported ${libSlotName()}`, 2500);
+  toast(`Exported ${libSlotName(ci)}`, 2500);
 }
 
-async function copyShareLink() {
-  const p = libProfile();
+async function copyShareLink(ci) {
+  const p = libProfile(ci);
   if (!p) { toast("Connect a controller first"); return; }
   const url = shareURL(toPortable(p));
   const ok = await copyText(url);
@@ -508,39 +583,39 @@ async function copyShareLink() {
   if (!ok) { try { location.hash = url.split("#")[1]; } catch { /* ignore */ } }
 }
 
-function importProfile() {
-  const p = libProfile();
+function importProfile(ci) {
+  const p = libProfile(ci);
   if (!p) { toast("Connect a controller first"); return; }
   pickFile(".json,.txt", (text) => {
     try {
-      applyPortable(p, fromFileText(text, lastProfileSlot));
+      applyPortable(p, fromFileText(text, laneSlot(ci)));
       render();
-      toast(`Imported into ${libSlotName()} — Save to write it to the controller`, 4000);
+      toast(`Imported into ${libSlotName(ci)} — Save to write it to the controller`, 4000);
       blip(720);
     } catch (e) { toast("Import failed: " + (e.message || e), 4000); }
   });
 }
 
-function applyPresetToCurrent(index) {
-  const p = libProfile();
+function applyPresetToCurrent(ci, index) {
+  const p = libProfile(ci);
   if (!p) { toast("Connect a controller first"); return; }
   const preset = PRESETS[index];
   if (!preset) return;
   applyPortable(p, preset.portable);
   render();
-  toast(`Applied "${preset.name}" to ${libSlotName()} — Save to keep it`, 4000);
+  toast(`Applied "${preset.name}" to ${libSlotName(ci)} — Save to keep it`, 4000);
   blip(720);
 }
 
-function applySharedToCurrent() {
-  const p = libProfile();
+function applySharedToCurrent(ci) {
+  const p = libProfile(ci);
   if (!p) { toast("Connect a controller first"); return; }
   if (!pendingShare) return;
   applyPortable(p, pendingShare);
   pendingShare = null;
   try { history.replaceState(null, "", location.pathname + location.search); } catch { /* ignore */ }
   render();
-  toast(`Applied shared profile to ${libSlotName()} — Save to keep it`, 4000);
+  toast(`Applied shared profile to ${libSlotName(ci)} — Save to keep it`, 4000);
   blip(720);
 }
 
@@ -570,10 +645,10 @@ function pickFile(accept, onText) {
   input.click();
 }
 
-// Switch the controller's active profile to this slot (like its profile button). The input
-// report reflects the change within a frame, so the indicator/wave update on their own.
-async function setActiveFor(slot) {
-  const c = controllers[activeCtrl];
+// Switch a controller's active profile to this slot (like its profile button). The input report
+// reflects the change within a frame, so the inline marker and wave update on their own.
+async function setActiveFor(ci, slot) {
+  const c = controllers[ci];
   if (!c) { toast("Connect a controller first"); return; }
   try {
     await ensureOpen(c.device);
@@ -582,26 +657,31 @@ async function setActiveFor(slot) {
   } catch (e) { toast("Couldn't switch profile: " + (e.message || e), 4000); }
 }
 
-function startRename() {
-  const blade = BLADES[nav.col];
-  if (blade.kind !== "profile") return;
-  const profile = controllers[activeCtrl].profiles[blade.slot];
+// Inline text editing, shared by profile-name (in the open menu) and controller-name (lane head).
+function inlineEdit(host, value, commit) {
   renaming = true;
   const input = document.createElement("input");
   input.className = "rename-input";
-  input.value = profile.name || "";
+  input.value = value || "";
   input.maxLength = 40;
-  const sel = $("#items").querySelector(".item.sel");
-  sel.innerHTML = "";
-  sel.append(input);
-  input.focus();
-  const done = (commit) => { renaming = false; if (commit) profile.name = input.value; render(); };
-  input.addEventListener("keydown", (e) => {
-    e.stopPropagation();
-    if (e.key === "Enter") done(true);
-    else if (e.key === "Escape") done(false);
-  });
+  host.innerHTML = "";
+  host.append(input);
+  input.focus(); input.select();
+  const done = (ok) => { renaming = false; if (ok && input.value.trim()) commit(input.value.trim()); render(); };
+  input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") done(true); else if (e.key === "Escape") done(false); });
   input.addEventListener("blur", () => done(true));
+}
+function startRenameProfile(ci, slot) {
+  const profile = controllers[ci]?.profiles[slot];
+  if (!profile) return;
+  const sel = $("#items").querySelector(".item.sel");
+  if (sel) inlineEdit(sel, profile.name, (v) => { profile.name = v; });
+}
+function startRenameController(ci) {
+  const c = controllers[ci];
+  if (!c) return;
+  const lab = $("#blades .cell.focused .lab");
+  if (lab) inlineEdit(lab, c.name, (v) => { c.name = v; });
 }
 
 // ============================ device ============================
@@ -609,8 +689,8 @@ async function load() {
   if (!hidSupported()) { $("#unsupported").classList.add("show"); return; }
   const granted = await grantedControllers();
   if (!granted.length) {
-    // Focus the Controllers blade so its "＋ Connect a controller…" action is front and center.
-    nav.col = 0; nav.row = 0; render();
+    // No controllers: focus the bottom "＋ Connect a controller…" row.
+    const g = grid(); nav.gr = g.length - 1; nav.gc = 0; nav.inCell = false; nav.drill = null; render();
     toast("No controller — choose “＋ Connect a controller…”", 6000);
     return;
   }
@@ -650,24 +730,28 @@ async function _addDevices(devices) {
       }
       if (controllers.some((c) => c.device === device)) continue; // defensive: added while awaiting
       device.addEventListener("inputreport", onInputReport);       // attach only after a clean read
-      controllers.push({ device, name: `Controller ${controllers.length + 1}`, profiles });
+      controllers.push({ device, name: `Controller ${controllers.length + 1}`, profiles, _activeProfile: null, _lastSlot: 0 });
       added++;
     } catch (e) {
       toast(`Couldn't read a controller: ${e.message || e}`, 4000);
     }
   }
+  // first controller(s): land focus on the first lane's Profile 1 rather than a tool row
+  if (added && !cellCtrl()) { nav.gr = 2; nav.gc = 1; nav.inCell = false; nav.drill = null; }
+  clampNav();
   updateDeviceStatus();
   render();
   return added;
 }
 function updateDeviceStatus() {
-  const c = controllers[activeCtrl];
-  $("#dev-name").textContent = c ? c.name : "No controller";
-  $("#dev-dot").style.background = c ? "var(--ok)" : "var(--dim)";
+  const c = cellCtrl() || controllers[0];
+  $("#dev-name").textContent = c ? c.name : (controllers.length ? "" : "No controller");
+  $("#dev-dot").style.background = controllers.length ? "var(--ok)" : "var(--dim)";
+  const tag = $("#mon-prof"); if (tag) tag.innerHTML = ""; // top-bar profile indicator retired (now inline per lane)
 }
 
-async function saveProfileFor(slot) {
-  const c = controllers[activeCtrl];
+async function saveProfileFor(ci, slot) {
+  const c = controllers[ci];
   if (!c) return;
   try {
     toast("Saving…");
@@ -681,12 +765,12 @@ async function saveProfileFor(slot) {
     blip(880);
   } catch (e) { toast("Save failed: " + (e.message || e), 4000); }
 }
-async function saveAll() {
-  for (let s = 0; s < PROFILE_COUNT; s++) await saveProfileFor(s);
+async function saveAll(ci) {
+  for (let s = 0; s < PROFILE_COUNT; s++) await saveProfileFor(ci, s);
   toast("Saved all profiles", 2500);
 }
-async function reloadFromDevice() {
-  const c = controllers[activeCtrl];
+async function reloadFromDevice(ci) {
+  const c = controllers[ci];
   if (!c) return;
   await ensureOpen(c.device);
   for (let s = 1; s <= PROFILE_COUNT; s++) {
@@ -696,6 +780,17 @@ async function reloadFromDevice() {
   }
   render();
   toast("Reloaded from controller", 2000);
+}
+// Soft disconnect: stop talking to this controller and drop it (grant stays; replug / Connect re-adds it).
+async function disconnectController(ci) {
+  const c = controllers[ci];
+  if (!c) return;
+  try { c.device.removeEventListener("inputreport", onInputReport); ctrlState.delete(c.device); await c.device.close(); } catch { /* ignore */ }
+  controllers.splice(ci, 1);
+  nav.inCell = false; nav.drill = null;
+  clampNav();
+  render();
+  toast("Disconnected", 1800);
 }
 
 // ============================ live input monitor ============================
@@ -740,7 +835,7 @@ function renderWarnSel() {
   for (const o of document.querySelectorAll("#mon-warn .warn-opt")) o.classList.toggle("sel", +o.dataset.i === warnSel);
 }
 function armMonitor() {
-  if (!controllers[activeCtrl]) { toast("Connect a controller first"); return; }
+  if (!controllers.length) { toast("Connect a controller first"); return; }
   monitorArm = true;
   warnSel = 0; renderWarnSel();
   inputEdge.confirm = true; inputEdge.back = true; inputEdge.armDir = true; // swallow the opening press
@@ -775,7 +870,6 @@ function enterMonitor() {
     card.querySelector(".raw").innerHTML = monRawHTML();
     renderMonCardProfile(card, controllers[i]);
   }
-  updateProfileTag();
   $("#monitor").classList.add("show");
   $("#stage").style.display = "none";
   $(".footer").style.display = "none"; // its nav hints don't apply while observing
@@ -820,32 +914,34 @@ function updateMonitor(device, buttons, axes, d, profile) {
 // ============================ input ============================
 function move(dx, dy) {
   if (renaming) return;
-  if (nav.drill) {
-    const profile = activeProfile();
-    const rows = drillRows(profile, nav.drill.key);
+  if (nav.drill) { // sub-section: up/down picks the row, left/right spins its value
+    const rows = drillRows(cellProfile(), nav.drill.key);
     if (dy) { nav.drill.index = clamp(nav.drill.index + dy, 0, rows.length - 1); blip(440); render(); }
-    if (dx) { // spinner: cycle the focused row's value
+    if (dx) {
       const r = rows[nav.drill.index];
       const cur = r.values.indexOf(r.get());
-      const next = r.values[(cur + dx + r.values.length) % r.values.length];
-      r.set(next); blip(560); render();
+      r.set(r.values[(cur + dx + r.values.length) % r.values.length]); blip(560); render();
     }
     return;
   }
-  if (dx) {
-    nav.col = clamp(nav.col + dx, 0, BLADES.length - 1);
-    nav.row = 0; blip(520); render();
+  if (nav.inCell) { // cell menu: up/down through items
+    if (dy) { const items = bladeItems(focusedCell()); nav.row = clamp(nav.row + dy, 0, items.length - 1); blip(440); render(); }
+    return;
   }
-  if (dy) {
-    const items = bladeItems(BLADES[nav.col]);
-    nav.row = clamp(nav.row + dy, 0, items.length - 1); blip(440); render();
-  }
+  // grid mode: 2D cell navigation across the ragged grid
+  const g = grid();
+  if (dy) { nav.gr = clamp(nav.gr + dy, 0, g.length - 1); nav.gc = clamp(nav.gc, 0, g[nav.gr].cells.length - 1); blip(520); render(); }
+  if (dx) { nav.gc = clamp(nav.gc + dx, 0, g[nav.gr].cells.length - 1); blip(520); render(); }
+}
+function confirmNav() { // Enter / center-stick: advance one level in (grid → menu → act)
+  if (nav.drill) return; // values are changed with left/right; Enter does nothing deeper
+  if (nav.inCell) activateItem(); else openCell();
 }
 function back() {
   if (renaming) return;
-  if (nav.drill) { nav.drill = null; blip(330); render(); }
+  if (nav.drill) { nav.drill = null; blip(330); render(); return; }
+  if (nav.inCell) { nav.inCell = false; blip(330); render(); return; }
 }
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 window.addEventListener("keydown", (e) => {
   if (capturing) {
@@ -871,7 +967,7 @@ window.addEventListener("keydown", (e) => {
   else if (k === "ArrowRight") { move(1, 0); e.preventDefault(); }
   else if (k === "ArrowUp") { move(0, -1); e.preventDefault(); }
   else if (k === "ArrowDown") { move(0, 1); e.preventDefault(); }
-  else if (k === "Enter") { if (!nav.drill) activate(); }
+  else if (k === "Enter") { confirmNav(); }
   else if (k === "Backspace" || k === "Escape") { back(); e.preventDefault(); }
   else if (k === "m" || k === "M") { soundOn = !soundOn; toast("Sound " + (soundOn ? "on" : "off"), 1200); }
 });
@@ -943,13 +1039,12 @@ function onInputReport(e) {
   waveConnected = true; // a report is streaming -> the wave is visible
   const { buttons, axes, profile } = decodePhysical(d);
   ctrlState.set(e.device, { buttons, axes, profile });
-  const isActive = e.device === controllers[activeCtrl]?.device;
-  // Active-profile tracking is per-device — only the *edited* controller's profile drives the
-  // indicator/wave/monitor. (Refresh the top bar, wave and "✓ Active" marker when it changes.)
-  if (isActive && profile && profile - 1 !== deviceProfile) {
-    deviceProfile = profile - 1;
-    updateProfileTag();
-    setWaveProfile(deviceProfile);
+  // Per-controller active-profile tracking: update THIS controller's _activeProfile; when it
+  // changes, re-render so its lane's inline "✓ Active" marker (and the wave, if it's the focused
+  // lane) refresh — wherever it sits in the grid.
+  const ci = controllers.findIndex((c) => c.device === e.device);
+  if (ci >= 0 && profile && profile - 1 !== controllers[ci]._activeProfile) {
+    controllers[ci]._activeProfile = profile - 1;
     if (!monitorMode && !monitorArm && !nav.drill) render(); // monitor cards re-render themselves
   }
   // Unified live input (union of every connected controller) drives highlighting + navigation.
@@ -978,10 +1073,10 @@ function handlePhysInput(buttons, axes) {
     fire(dir.left ? "left" : dir.right ? "right" : dir.up ? "up" : "down");
     dirRepeatAt = now + 130;
   }
-  const confirm = buttons.has(8) || buttons.has(9);           // center or stick-click
+  const wantConfirm = buttons.has(8) || buttons.has(9);          // center or stick-click
   const wantBack = [0, 1, 2, 3, 4, 5, 6, 7].some((i) => buttons.has(i)); // any perimeter
-  if (confirm && !inputEdge.confirm && !nav.drill) activate();
-  inputEdge.confirm = confirm;
+  if (wantConfirm && !inputEdge.confirm) confirmNav();
+  inputEdge.confirm = wantConfirm;
   if (wantBack && !inputEdge.back) back();
   inputEdge.back = wantBack;
 }
@@ -1106,9 +1201,8 @@ function init() {
         e.device.removeEventListener("inputreport", onInputReport);
         ctrlState.delete(e.device);
         controllers.splice(idx, 1);
-        if (activeCtrl >= controllers.length) activeCtrl = Math.max(0, controllers.length - 1);
-        deviceProfile = null;
-        nav.drill = null;
+        nav.inCell = false; nav.drill = null;
+        clampNav();
       }
       updateDeviceStatus(); render();
     });

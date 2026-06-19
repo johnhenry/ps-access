@@ -36,56 +36,71 @@
 
   /* the cross stage */
   #stage { position: fixed; inset: 0; z-index: 3; }
-  /* horizontal blade ribbon */
-  #blades { position: absolute; left: 0; right: 0; top: 38%; height: 0;
-    display: flex; align-items: center; gap: 60px;
-    transition: transform .42s cubic-bezier(.22,.61,.36,1), opacity .42s ease, filter .42s ease; will-change: transform; }
-  #blades.drilled { opacity: .28; filter: blur(1.5px); }
+  /* XMB cross: a vertical column of row anchors (controllers + tools); the focused row's blades
+     fan out horizontally to the right; neighbor rows are dimmed and glide vertically. */
+  #blades { position: absolute; left: 24%; top: 42%; right: 0; height: 0;
+    transition: opacity .42s ease, transform .42s cubic-bezier(.22,.61,.36,1); transform-origin: 6% 50%; }
+  /* entering a cell: the cross recedes/dims so the vertical menu can zoom in over it */
+  #blades.incell { opacity: .18; transform: scale(.8); }
+  .row { position: absolute; left: 0; top: 0; display: flex; align-items: center;
+    transform: translate(0, calc(var(--off) * 88px - 50%));
+    transition: transform .42s cubic-bezier(.22,.61,.36,1), opacity .42s ease; will-change: transform; }
+  /* dimmed anchors for non-focused rows = the vertical category axis */
+  .anchor { display: flex; align-items: center; gap: 12px; transform: scale(.82); transform-origin: left center;
+    cursor: pointer; white-space: nowrap; }
+  .anchor .ic { width: 48px; height: 48px; display: grid; place-items: center; }
+  .anchor .ic svg, .anchor .ic .glyph { width: 100%; height: 100%; }
+  .anchor .label { font-size: 15px; letter-spacing: .06em; color: var(--dim); }
+  /* focused row = the big horizontal blade ribbon; it slides so the focused blade glides to focus */
+  .ribbon { display: flex; align-items: center; gap: 32px;
+    transition: transform .42s cubic-bezier(.22,.61,.36,1); will-change: transform; }
   .blade { position: relative; flex: 0 0 auto; display: flex; flex-direction: column; align-items: center;
-    gap: 10px; opacity: .5; filter: saturate(.7);
-    transform: scale(.62); transform-origin: center bottom;
-    transition: opacity .42s ease, transform .42s cubic-bezier(.22,.61,.36,1), filter .42s ease; }
-  .blade.focused { opacity: 1; filter: none; transform: scale(1); }
-  .blade .icon { width: 168px; height: 168px; display: grid; place-items: center; }
-  .blade.focused .icon { filter: drop-shadow(0 6px 26px rgba(111,168,255,.5)); }
-  .blade .icon svg, .blade .icon .glyph { width: 100%; height: 100%; }
-  .blade .glyph { display: grid; place-items: center; font-size: 64px; font-weight: 200;
-    border-radius: 24px; background: var(--glass); border: 1px solid rgba(255,255,255,.08);
-    backdrop-filter: blur(8px); }
+    gap: 10px; width: 132px; opacity: .42; filter: saturate(.7); transform: scale(.6); transform-origin: center bottom;
+    cursor: pointer; transition: opacity .4s ease, transform .4s cubic-bezier(.22,.61,.36,1), filter .4s ease; }
+  .blade.focused { opacity: 1; filter: none; transform: scale(1.04); }
+  .blade .ic { width: 132px; height: 132px; display: grid; place-items: center; }
+  .blade.focused .ic { filter: drop-shadow(0 6px 30px rgba(111,168,255,.55)); }
+  .blade .ic svg, .blade .ic .glyph { width: 100%; height: 100%; }
+  .blade .glyph { display: grid; place-items: center; border-radius: 22px; background: var(--glass);
+    border: 1px solid rgba(255,255,255,.08); backdrop-filter: blur(8px); }
+  .blade .label { font-size: 13px; letter-spacing: .05em; color: var(--dim); text-align: center;
+    max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0; transition: opacity .3s ease; }
+  .blade.focused .label { color: var(--ink); opacity: 1; }
   .ctrl-icon { width: 82%; height: 82%; }
-  .save-icon { width: 64%; height: 64%; }
-  .blade .label { font-size: 14px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
-  .blade.focused .label { color: var(--ink); }
+  .save-icon { width: 60%; height: 60%; }
 
-  /* vertical item list, hung under the focused blade at the crossing column */
-  #items { position: absolute; z-index: 4; left: 0; top: 0; min-width: 280px;
-    transition: left .42s cubic-bezier(.22,.61,.36,1); }
-  .item { padding: 9px 4px; font-size: 18px; color: var(--dim); opacity: .55; letter-spacing: .01em;
-    display: flex; align-items: center; gap: 12px; transform: scale(.92); transform-origin: left center;
-    transition: opacity .2s, transform .2s, color .2s; white-space: nowrap; }
-  .item .chev { opacity: 0; transition: opacity .2s; }
-  .item.sel { opacity: 1; color: var(--ink); transform: scale(1.08); font-weight: 400;
-    text-shadow: 0 2px 18px rgba(111,168,255,.45); }
-  .item.sel .chev { opacity: .8; }
-  .item .val { margin-left: auto; color: var(--accent); display: inline-flex; align-items: center; gap: 8px; }
-  .item .val .sym { font-size: 20px; }
+  /* zoom-in vertical menu (XMB sub-list): big stacked items at the focal column, not a popover */
+  #items { position: fixed; z-index: 6; left: 24%; top: 42%; transform: translateY(-50%) scale(.92);
+    min-width: 300px; max-width: 42vw; max-height: 72vh; overflow-y: auto; scrollbar-width: none;
+    display: flex; flex-direction: column; gap: 2px; opacity: 0; pointer-events: none;
+    transition: opacity .32s ease, transform .32s cubic-bezier(.22,.61,.36,1); }
+  #items.show { opacity: 1; transform: translateY(-50%) scale(1); pointer-events: auto; }
+  #items::-webkit-scrollbar { display: none; }
+  .item { padding: 7px 2px; font-size: 22px; font-weight: 300; color: var(--dim); opacity: .42; letter-spacing: .01em;
+    display: flex; align-items: center; gap: 14px; white-space: nowrap;
+    transform: scale(.9); transform-origin: left center; transition: opacity .2s, color .2s, transform .2s; }
+  .item .chev { opacity: 0; color: var(--accent); transition: opacity .2s; }
+  .item.sel { opacity: 1; color: var(--ink); transform: scale(1.04); text-shadow: 0 2px 22px rgba(111,168,255,.5); }
+  .item.sel .chev { opacity: .9; }
+  .item .val { margin-left: auto; color: var(--accent); display: inline-flex; align-items: center; gap: 10px; font-size: 20px; }
+  .item .val .sym { font-size: 22px; }
   .item.sel .val .arrow { opacity: .9; }
   .item .val .arrow { opacity: 0; transition: opacity .2s; color: var(--dim); }
 
   /* hero render of the focused profile */
   /* controller render (blade icons + hero) */
-  .icon svg, #hero svg { overflow: visible; }
-  .icon svg .seg, #hero svg .seg { fill: rgba(255,255,255,.045); stroke: rgba(255,255,255,.20); stroke-width: 2; stroke-linejoin: round; transition: fill .12s, stroke .12s; }
-  .icon svg .seg.on, #hero svg .seg.on { fill: var(--accent2); stroke: var(--accent); }
-  .icon svg .seg.foc, #hero svg .seg.foc { stroke: var(--accent); stroke-width: 4; fill: rgba(111,168,255,.16); }
-  .icon svg .lab, #hero svg .lab { fill: var(--ink); font: 300 22px sans-serif; text-anchor: middle; }
-  .icon svg .lab.big, #hero svg .lab.big { font-size: 34px; }
-  .icon svg .lab.sm, #hero svg .lab.sm { font-size: 15px; fill: var(--dim); }
-  .icon svg .stickwell, #hero svg .stickwell { fill: rgba(255,255,255,.035); stroke: rgba(255,255,255,.2); stroke-width: 2; }
-  .icon svg .stickwell.foc, #hero svg .stickwell.foc { stroke: var(--accent); stroke-width: 4; }
-  .icon svg .thumb, #hero svg .thumb { fill: rgba(255,255,255,.12); stroke: rgba(255,255,255,.22); stroke-width: 2; transition: fill .1s, cx .05s, cy .05s; }
-  .icon svg .thumb.on, #hero svg .thumb.on { fill: var(--accent2); stroke: var(--accent); }
-  .icon svg .thumb.foc, #hero svg .thumb.foc { stroke: var(--accent); stroke-width: 4; }
+  .blade svg, .anchor svg, #hero svg { overflow: visible; }
+  .blade svg .seg, .anchor svg .seg, #hero svg .seg { fill: rgba(255,255,255,.045); stroke: rgba(255,255,255,.20); stroke-width: 2; stroke-linejoin: round; transition: fill .12s, stroke .12s; }
+  .blade svg .seg.on, .anchor svg .seg.on, #hero svg .seg.on { fill: var(--accent2); stroke: var(--accent); }
+  .blade svg .seg.foc, .anchor svg .seg.foc, #hero svg .seg.foc { stroke: var(--accent); stroke-width: 4; fill: rgba(111,168,255,.16); }
+  .blade svg .lab, .anchor svg .lab, #hero svg .lab { fill: var(--ink); font: 300 22px sans-serif; text-anchor: middle; }
+  .blade svg .lab.big, .anchor svg .lab.big, #hero svg .lab.big { font-size: 34px; }
+  .blade svg .lab.sm, .anchor svg .lab.sm, #hero svg .lab.sm { font-size: 15px; fill: var(--dim); }
+  .blade svg .stickwell, .anchor svg .stickwell, #hero svg .stickwell { fill: rgba(255,255,255,.035); stroke: rgba(255,255,255,.2); stroke-width: 2; }
+  .blade svg .stickwell.foc, .anchor svg .stickwell.foc, #hero svg .stickwell.foc { stroke: var(--accent); stroke-width: 4; }
+  .blade svg .thumb, .anchor svg .thumb, #hero svg .thumb { fill: rgba(255,255,255,.12); stroke: rgba(255,255,255,.22); stroke-width: 2; transition: fill .1s, cx .05s, cy .05s; }
+  .blade svg .thumb.on, .anchor svg .thumb.on, #hero svg .thumb.on { fill: var(--accent2); stroke: var(--accent); }
+  .blade svg .thumb.foc, .anchor svg .thumb.foc, #hero svg .thumb.foc { stroke: var(--accent); stroke-width: 4; }
 
   #hero { position: absolute; z-index: 4; right: 9%; top: 52%; transform: translateY(-50%);
     width: 33vmin; max-width: 380px; opacity: 0;
