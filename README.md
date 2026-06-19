@@ -33,13 +33,16 @@ ps-access dump                        # decode all 3 profiles
 ps-access backup                      # save all 3 profiles to captures/
 ps-access read-profile 1 --json       # decode one profile as JSON
 ps-access set-active 2                 # switch the active profile (like the profile button)
-ps-access set 1 button5=triangle      # remap button 5
-ps-access set 1 port1=cross           # expansion port 1 -> cross
-ps-access set 1 "port0=left stick"    # built-in stick assignment
-ps-access set 1 orientation="stick on the right"
+ps-access set 1 button5=triangle port1=cross   # remap several at once (one write)
+ps-access set 1 "port0=left stick" orientation="stick on the right"
 ps-access write-profile 2 captures/backup-....json
 ps-access restore captures/backup-....json
 ps-access apply profile.json 1        # apply a web-app export / share code / URL / preset id to a slot
+ps-access export 1 my-profile.json    # save a slot as a portable profile (import side: apply)
+ps-access rename 1 "One-handed"       # rename a profile
+ps-access copy 1 2                     # clone slot 1 -> 2 (across controllers: --from <id> --to <id>)
+ps-access diff 1 my-profile.json      # compare a slot to a file (or slot-to-slot)
+ps-access monitor                     # live terminal view of buttons + stick
 ```
 
 `apply` is the bridge between the web tool and the CLI: feed it a **profile JSON exported from the
@@ -48,7 +51,10 @@ writes that mapping to a slot on the controller (reading the current profile fir
 unmodeled fields survive, then round-trip verifying).
 
 - `--device <serial|index|path>` targets a specific controller when several are connected
-  (serial is the stable id — see `ps-access list`).
+  (serial is the stable id — see `ps-access list`). With **multiple** controllers connected, a
+  *write* without `--device` is refused (so you never edit the wrong one).
+- `--all` runs reads/backups (and `set-active`/`apply`) on **every** connected controller.
+- `--dry-run` previews a write (`set`/`apply`/`restore`/`write-profile`/`copy`/`rename`) as a diff.
 - **Every write auto-backs-up first** to `captures/` and round-trip re-reads to verify.
 
 ## Web tool (multiple controllers)

@@ -282,7 +282,7 @@ function bladeItems(cell) {
       { key: "br-reset", label: "Reset to defaults", action: "bridgeReset" },
       { key: "br-export", label: "Export config for the ps-access CLI (bridge.json)", action: "bridgeExport" },
       { key: "br-json", label: "Copy config JSON", action: "bridgeCopyJson" },
-      { key: "br-cmd", label: "Copy CLI run command (npx ps-access-bridge)", action: "bridgeCopyCmd" },
+      { key: "br-cmd", label: "Copy CLI run command (npx ps-access bridge)", action: "bridgeCopyCmd" },
     );
     return items;
   }
@@ -531,7 +531,7 @@ function activateItem() {
     case "capture": startCapture(it.cap); break;
     case "cycleStick": cycleStickMode(); break;
     case "bridgeReset": bridgeMap = defaultBridgeMap(); saveBridgeMap(); render(); toast("Bridge mapping reset to defaults"); break;
-    case "bridgeExport": downloadText("ps-access-bridge.json", toConfigJSON(bridgeMap)); toast("Exported bridge.json — run it with: npx ps-access-bridge --config bridge.json", 5000); break;
+    case "bridgeExport": downloadText("ps-access-bridge.json", toConfigJSON(bridgeMap)); toast("Exported — run it with: npx ps-access bridge --config ps-access-bridge.json", 5000); break;
     case "bridgeCopyJson": copyText(toConfigJSON(bridgeMap)).then((ok) => toast(ok ? "Config JSON copied" : "Copy failed", 2500)); break;
     case "bridgeCopyCmd": copyText(runCommand()).then((ok) => toast(ok ? "Run command copied" : "Copy failed", 2500)); break;
   }

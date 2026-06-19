@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-// ps-access — read/write PlayStation Access Controller profiles over USB-C (no PS5).
-import { writeFileSync, readFileSync, mkdirSync, existsSync } from "node:fs";
+// ps-access — PlayStation Access Controller tool over USB-C (no PS5). Profiles + PC input bridge.
+import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   parseProfile, buildProfile, describeProfile, PROFILE_SIZE, PROFILE_COUNT,
-  ACTION_BY_NAME, ACTIONS, STICK_BY_NAME, ORIENTATION_BY_NAME,
+  ACTION_BY_NAME, ACTIONS, STICKS, STICK_BY_NAME, ORIENTATIONS, ORIENTATION_BY_NAME,
 } from "./web/access-protocol.mjs";
-import { PRESETS, presetById, fromFileText, applyPortable, decodeShare, shareURL } from "./web/profile-library.mjs";
+import {
+  PRESETS, presetById, fromFileText, toPortable, toFileText, applyPortable, decodeShare, shareURL,
+} from "./web/profile-library.mjs";
 
-// node-hid is loaded lazily so offline commands (presets/share/show-share/help) work
+// node-hid is loaded lazily so offline commands (presets/share/show-share/diff/help) work
 // without it installed. Device commands call loadHid() first (see the dispatcher).
 let _hid = null;
 async function loadHid() {
@@ -19,11 +21,11 @@ async function loadHid() {
     mod.listControllers(); // probe: force node-hid's native binding to load now, so we can explain failures
   } catch (e) {
     const m = String(e.message || e);
-    if (e.code === "ERR_MODULE_NOT_FOUND" || /Cannot find (module|package)|ERR_MODULE_NOT_FOUND/.test(m)) {
-      throw new Error(`controller access needs node-hid, which isn't installed. Run "npm install" (or "npm i -g ps-access"). The offline commands (presets, share, show-share) work without it.`);
+    if (e.code === "ERR_MODULE_NOT_FOUND" || /Cannot find (module|package)/.test(m)) {
+      throw new Error(`controller access needs node-hid, which isn't installed. Run "npm install" (or "npm i -g ps-access"). The offline commands (presets, share, show-share, diff) work without it.`);
     }
     if (/libudev|shared object|NODE_MODULE_VERSION|was compiled|dlopen|\.node/.test(m)) {
-      throw new Error(`node-hid couldn't load on this system (${m}). On Linux it needs libudev (e.g. apt install libudev1, or the udev package). Offline commands (presets, share, show-share) still work.`);
+      throw new Error(`node-hid couldn't load on this system (${m}). On Linux it needs libudev (e.g. apt install libudev1). Offline commands still work.`);
     }
     throw new Error(`controller access unavailable: ${m}`);
   }
@@ -44,6 +46,10 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === "--device" || a === "-d") opts.device = argv[++i];
     else if (a === "--out" || a === "-o") opts.out = argv[++i];
+    else if (a === "--from") opts.from = argv[++i];
+    else if (a === "--to") opts.to = argv[++i];
+    else if (a === "--all") opts.all = true;
+    else if (a === "--dry-run" || a === "--dry") opts.dryRun = true;
     else if (a === "--json") opts.json = true;
     else if (a === "--yes" || a === "-y") opts.yes = true;
     else opts._.push(a);
@@ -51,25 +57,20 @@ function parseArgs(argv) {
   return opts;
 }
 
-function hex(bytes) {
-  return [...bytes].map((x) => x.toString(16).padStart(2, "0")).join(" ");
-}
-function stamp() {
-  return new Date().toISOString().replace(/[:.]/g, "-");
-}
+const hex = (bytes) => [...bytes].map((x) => x.toString(16).padStart(2, "0")).join(" ");
+const stamp = () => new Date().toISOString().replace(/[:.]/g, "-");
 
 function readAllProfiles(device) {
-  const profiles = [];
-  for (let n = 1; n <= PROFILE_COUNT; n++) profiles.push(readProfileRaw(device, n));
-  return profiles;
+  const out = [];
+  for (let n = 1; n <= PROFILE_COUNT; n++) out.push(readProfileRaw(device, n));
+  return out;
 }
 
 // Auto-backup all profiles before any write, so every change is reversible.
 function autoBackup(device, label) {
   mkdirSync(CAPTURES, { recursive: true });
-  const raws = readAllProfiles(device);
   const file = join(CAPTURES, `autobackup-${label}-${stamp()}.json`);
-  saveBackup(file, raws);
+  saveBackup(file, readAllProfiles(device));
   return file;
 }
 
@@ -78,18 +79,13 @@ function saveBackup(file, raws) {
     device: "PlayStation Access Controller",
     vidpid: "054c:0e5f",
     savedAt: new Date().toISOString(),
-    profiles: raws.map((raw, i) => ({
-      slot: i + 1,
-      rawHex: Buffer.from(raw).toString("hex"),
-      decoded: parseProfile(raw),
-    })),
+    profiles: raws.map((raw, i) => ({ slot: i + 1, rawHex: Buffer.from(raw).toString("hex"), decoded: parseProfile(raw) })),
   };
   writeFileSync(file, JSON.stringify(payload, (k, v) => (k === "_raw" ? undefined : v), 2));
 }
 
 function loadRawFromFile(path, slot) {
   const txt = readFileSync(path, "utf8").trim();
-  // JSON backup with profiles[].rawHex, or a bare hex/binary file.
   if (txt.startsWith("{")) {
     const obj = JSON.parse(txt);
     const entry = (obj.profiles || []).find((p) => p.slot === slot) || obj.profiles?.[0];
@@ -97,8 +93,7 @@ function loadRawFromFile(path, slot) {
     return Uint8Array.from(Buffer.from(entry.rawHex, "hex"));
   }
   if (/^[0-9a-fA-F\s]+$/.test(txt)) return Uint8Array.from(Buffer.from(txt.replace(/\s+/g, ""), "hex"));
-  const bin = readFileSync(path);
-  return Uint8Array.from(bin);
+  return Uint8Array.from(readFileSync(path));
 }
 
 function resolveAction(name) {
@@ -113,238 +108,359 @@ function resolveAction(name) {
 function resolvePortable(src, slotIdx) {
   const preset = presetById(src);
   if (preset) return preset.portable;
-  if (existsSync(src)) return fromFileText(readFileSync(src, "utf8"), slotIdx);
-  const code = src.includes("#p=") ? src.split("#p=")[1] : src; // share URL or bare code
-  return fromFileText(code, slotIdx);
+  const code = src.includes("#p=") ? src.split("#p=")[1] : src;
+  if (!src.startsWith("{") && !/[\\/]/.test(src) && !src.endsWith(".json")) {
+    try { return decodeShare(code); } catch { /* fall through to file */ }
+  }
+  return fromFileText(readFileSync(src, "utf8"), slotIdx);
+}
+
+// ---- controller targeting (mirror the per-controller UI; explicit + stable) ----
+const ctrlId = (d) => d.serialNumber ?? `index ${d.index}`;
+const fmtList = (list) => list.map((d) => `  ${ctrlId(d).padEnd(20)} ${d.product}`).join("\n");
+
+// Returns the selector(s) to operate on. Writes refuse to guess when several are connected.
+function resolveTargets(opts, { write = false } = {}) {
+  const list = listControllers();
+  if (!list.length) throw new Error("No Access Controller connected (VID 054C / PID 0E5F). Connect it via USB-C.");
+  if (opts.all) return list.map((d) => d.path);
+  if (opts.device != null) return [opts.device];
+  if (list.length === 1) return [list[0].path];
+  if (write) throw new Error(`Multiple controllers connected — pick one with --device <serial> (or --all):\n${fmtList(list)}`);
+  return [list[0].path];
+}
+function forEachTarget(opts, write, fn) {
+  for (const sel of resolveTargets(opts, { write })) {
+    const { device, info } = openController(sel);
+    try { fn(device, info); } finally { device.close(); }
+  }
+}
+
+// ---- profile diffing ----
+const actLabel = (b) => (ACTIONS[b.map1] ?? `?${b.map1}`) + (b.map2 ? ` + ${ACTIONS[b.map2] ?? b.map2}` : "") + (b.toggle ? " [toggle]" : "");
+const portDesc = (pt) => !pt || pt.kind === "none" ? "—"
+  : pt.kind === "stick" ? `${STICKS[pt.stick] ?? "?"} (${ORIENTATIONS[pt.orientation] ?? "?"})`
+  : `${ACTIONS[pt.map1] ?? "?"}${pt.map2 ? " + " + (ACTIONS[pt.map2] ?? pt.map2) : ""}${pt.toggle ? " [toggle]" : ""}`;
+
+function diffProfiles(a, b) {
+  const out = [];
+  if ((a.name || "") !== (b.name || "")) out.push(`name: ${JSON.stringify(a.name || "")} -> ${JSON.stringify(b.name || "")}`);
+  const nb = Math.max(a.buttons.length, b.buttons.length);
+  for (let i = 0; i < nb; i++) {
+    const x = a.buttons[i], y = b.buttons[i];
+    if (!x || !y || actLabel(x) !== actLabel(y)) out.push(`button ${i + 1}: ${x ? actLabel(x) : "—"} -> ${y ? actLabel(y) : "—"}`);
+  }
+  const np = Math.max(a.ports.length, b.ports.length);
+  for (let i = 0; i < np; i++) {
+    if (portDesc(a.ports[i]) !== portDesc(b.ports[i])) out.push(`port ${i}${i === 0 ? " (stick)" : ""}: ${portDesc(a.ports[i])} -> ${portDesc(b.ports[i])}`);
+  }
+  return out;
+}
+function printDiff(cur, next) {
+  const d = diffProfiles(cur, next);
+  console.log(d.length ? d.map((x) => "  " + x).join("\n") : "  (no change)");
+}
+
+// Apply one "target=value" assignment to a decoded profile (in place).
+function applyAssignment(p, assignment) {
+  const m = assignment.match(/^(button\d+|port\d+|orientation)\s*=\s*(.+)$/i);
+  if (!m) throw new Error(`bad assignment "${assignment}" (use button1..10|port0..4|orientation=value)`);
+  const target = m[1].toLowerCase();
+  const value = m[2].replace(/^["']|["']$/g, "");
+  if (target === "orientation") {
+    const code = value.toLowerCase() in ORIENTATION_BY_NAME ? ORIENTATION_BY_NAME[value.toLowerCase()] : Number(value);
+    for (const port of p.ports) if (port.kind === "stick") port.orientation = code;
+  } else if (target.startsWith("button")) {
+    const i = Number(target.slice(6)) - 1;
+    if (!(i >= 0 && i < 10)) throw new Error("button must be 1..10");
+    p.buttons[i].map1 = resolveAction(value).code;
+  } else {
+    const i = Number(target.slice(4));
+    if (!(i >= 0 && i < 5)) throw new Error("port must be 0..4");
+    const a = resolveAction(value);
+    if (a.kind === "stick") p.ports[i] = { kind: "stick", stick: a.code, orientation: p.ports.find((x) => x.kind === "stick")?.orientation ?? 3 };
+    else if (a.code === 0) p.ports[i] = { kind: "none" };
+    else p.ports[i] = { kind: "button", analog: false, map1: a.code, map2: 0, toggle: false };
+  }
 }
 
 const COMMANDS = {
-  list() {
+  list(opts) {
     const list = listControllers();
+    if (opts.json) return console.log(JSON.stringify(list, null, 2));
     if (!list.length) return console.log("No Access Controller connected (VID 054C / PID 0E5F).");
     console.log(`${list.length} Access Controller(s):`);
-    for (const d of list) {
-      console.log(`  [${d.index}] ${d.product} — ${d.manufacturer}  serial=${d.serialNumber ?? "n/a"}  path=${d.path}`);
-    }
+    for (const d of list) console.log(`  ${ctrlId(d).padEnd(20)} ${d.product} — ${d.manufacturer}  index=${d.index}  serial=${d.serialNumber ?? "n/a"}  path=${d.path}`);
   },
 
   dump(opts) {
-    const { device, info } = openController(opts.device ?? 0);
-    try {
-      console.log(`# ${info.product} [${info.index}] ${info.path}`);
+    forEachTarget(opts, false, (device, info) => {
+      if (opts.json) {
+        const profiles = [];
+        for (let n = 1; n <= PROFILE_COUNT; n++) profiles.push(parseProfile(readProfileRaw(device, n)));
+        console.log(JSON.stringify({ controller: { index: info.index, serial: info.serialNumber, product: info.product }, profiles }, (k, v) => (k === "_raw" ? undefined : v), 2));
+        return;
+      }
+      console.log(`# ${info.product} [${info.index}] serial=${info.serialNumber ?? "n/a"}`);
       for (let n = 1; n <= PROFILE_COUNT; n++) {
         const raw = readProfileRaw(device, n);
         console.log(`\n=== Profile ${n} ===`);
         console.log(describeProfile(parseProfile(raw)));
         console.log("raw:", hex(raw.slice(0, 32)), "...");
       }
-    } finally {
-      device.close();
-    }
+    });
+  },
+
+  "read-profile"(opts) {
+    const slot = Number(opts._[0]);
+    if (!(slot >= 1 && slot <= PROFILE_COUNT)) throw new Error("usage: read-profile <1..3> [--json]");
+    forEachTarget(opts, false, (device) => {
+      const p = parseProfile(readProfileRaw(device, slot));
+      console.log(opts.json ? JSON.stringify(p, (k, v) => (k === "_raw" ? undefined : v), 2) : describeProfile(p));
+    });
   },
 
   backup(opts) {
-    const { device, info } = openController(opts.device ?? 0);
-    try {
-      mkdirSync(CAPTURES, { recursive: true });
-      const raws = readAllProfiles(device);
-      const file = opts.out || join(CAPTURES, `backup-dev${info.index}-${stamp()}.json`);
-      saveBackup(file, raws);
-      console.log(`Backed up 3 profiles from controller [${info.index}] -> ${file}`);
-    } finally {
-      device.close();
+    const targets = resolveTargets(opts, { write: false });
+    for (const sel of targets) {
+      const { device, info } = openController(sel);
+      try {
+        mkdirSync(CAPTURES, { recursive: true });
+        const file = (opts.out && targets.length === 1) ? opts.out : join(CAPTURES, `backup-${info.serialNumber ?? "dev" + info.index}-${stamp()}.json`);
+        saveBackup(file, readAllProfiles(device));
+        console.log(`Backed up 3 profiles from [${info.index}] ${ctrlId(info)} -> ${file}`);
+      } finally { device.close(); }
     }
   },
 
   "set-active"(opts) {
     const slot = Number(opts._[0]);
-    if (!(slot >= 1 && slot <= PROFILE_COUNT)) throw new Error("usage: set-active <1..3>");
-    const { device, info } = openController(opts.device ?? 0);
-    try {
-      setActiveProfile(device, slot);
-      console.log(`Switched controller [${info.index}] to active Profile ${slot}.`);
-    } finally {
-      device.close();
-    }
-  },
-
-  "read-profile"(opts) {
-    const slot = Number(opts._[0]);
-    if (!(slot >= 1 && slot <= PROFILE_COUNT)) throw new Error("usage: read-profile <1..3>");
-    const { device } = openController(opts.device ?? 0);
-    try {
-      const raw = readProfileRaw(device, slot);
-      const p = parseProfile(raw);
-      if (opts.json) console.log(JSON.stringify(p, (k, v) => (k === "_raw" ? undefined : v), 2));
-      else console.log(describeProfile(p));
-    } finally {
-      device.close();
-    }
+    if (!(slot >= 1 && slot <= PROFILE_COUNT)) throw new Error("usage: set-active <1..3> [--all]");
+    forEachTarget(opts, true, (device, info) => { setActiveProfile(device, slot); console.log(`Switched [${info.index}] to active Profile ${slot}.`); });
   },
 
   "write-profile"(opts) {
-    const slot = Number(opts._[0]);
-    const file = opts._[1];
-    if (!(slot >= 1 && slot <= PROFILE_COUNT) || !file) throw new Error("usage: write-profile <1..3> <file>");
+    const slot = Number(opts._[0]); const file = opts._[1];
+    if (!(slot >= 1 && slot <= PROFILE_COUNT) || !file) throw new Error("usage: write-profile <1..3> <file> [--dry-run]");
     const raw = loadRawFromFile(file, slot);
     if (raw.length < PROFILE_SIZE) throw new Error(`file is ${raw.length} bytes, need ${PROFILE_SIZE}`);
-    const { device, info } = openController(opts.device ?? 0);
-    try {
-      const bk = autoBackup(device, `dev${info.index}-pre-write`);
-      console.log(`(auto-backup -> ${bk})`);
+    forEachTarget(opts, true, (device, info) => {
+      if (opts.dryRun) { console.log(`[dry-run] [${info.index}] profile ${slot}:`); return printDiff(parseProfile(readProfileRaw(device, slot)), parseProfile(raw)); }
+      console.log(`(auto-backup -> ${autoBackup(device, `dev${info.index}-pre-write`)})`);
       writeProfileRaw(device, slot, raw);
       const back = readProfileRaw(device, slot);
       const ok = Buffer.compare(Buffer.from(back.slice(0, PROFILE_SIZE)), Buffer.from(raw.slice(0, PROFILE_SIZE))) === 0;
-      console.log(`Wrote profile ${slot}. Round-trip verify: ${ok ? "OK (byte-identical)" : "DIFFERS (device may normalize fields)"}`);
-    } finally {
-      device.close();
-    }
+      console.log(`Wrote profile ${slot} on [${info.index}]. Round-trip verify: ${ok ? "OK (byte-identical)" : "DIFFERS (device may normalize fields)"}`);
+    });
   },
 
-  // set <slot> button5=triangle | port1=cross | port0="left stick" | orientation=...
+  // set <slot> <target=value>...  (multiple assignments -> one read/backup/write)
   set(opts) {
     const slot = Number(opts._[0]);
-    const assignment = opts._.slice(1).join(" ");
-    const m = assignment.match(/^(button\d+|port\d+|orientation)\s*=\s*(.+)$/i);
-    if (!(slot >= 1 && slot <= PROFILE_COUNT) || !m) {
-      throw new Error('usage: set <1..3> <button1..10|port0..4|orientation>=<action>');
+    const assigns = opts._.slice(1);
+    if (!(slot >= 1 && slot <= PROFILE_COUNT) || !assigns.length) {
+      throw new Error('usage: set <1..3> <target=value>...   e.g. set 1 button5=triangle port1=cross orientation="stick on the right"');
     }
-    const target = m[1].toLowerCase();
-    const value = m[2].replace(/^["']|["']$/g, "");
-    const { device, info } = openController(opts.device ?? 0);
-    try {
-      const raw = readProfileRaw(device, slot);
-      const p = parseProfile(raw);
-      if (target === "orientation") {
-        const code = value.toLowerCase() in ORIENTATION_BY_NAME ? ORIENTATION_BY_NAME[value.toLowerCase()] : Number(value);
-        for (const port of p.ports) if (port.kind === "stick") port.orientation = code;
-      } else if (target.startsWith("button")) {
-        const i = Number(target.slice(6)) - 1;
-        if (!(i >= 0 && i < 10)) throw new Error("button must be 1..10");
-        p.buttons[i].map1 = resolveAction(value).code;
-      } else {
-        const i = Number(target.slice(4));
-        if (!(i >= 0 && i < 5)) throw new Error("port must be 0..4");
-        const a = resolveAction(value);
-        if (a.kind === "stick") p.ports[i] = { kind: "stick", stick: a.code, orientation: p.ports.find((x) => x.kind === "stick")?.orientation ?? 3 };
-        else if (a.code === 0) p.ports[i] = { kind: "none" };
-        else p.ports[i] = { kind: "button", analog: false, map1: a.code, map2: 0, toggle: false };
-      }
-      const bk = autoBackup(device, `dev${info.index}-pre-set`);
-      console.log(`(auto-backup -> ${bk})`);
-      const out = buildProfile(p, { now: Date.now() });
-      writeProfileRaw(device, slot, out);
-      console.log(`set profile ${slot} ${target}=${value}`);
-      console.log(describeProfile(parseProfile(readProfileRaw(device, slot))));
-    } finally {
-      device.close();
-    }
+    forEachTarget(opts, true, (device, info) => {
+      const cur = parseProfile(readProfileRaw(device, slot));
+      const p = parseProfile(readProfileRaw(device, slot));
+      for (const a of assigns) applyAssignment(p, a);
+      const next = buildProfile(p, { now: Date.now() });
+      if (opts.dryRun) { console.log(`[dry-run] [${info.index}] profile ${slot}:`); return printDiff(cur, parseProfile(next)); }
+      console.log(`(auto-backup -> ${autoBackup(device, `dev${info.index}-pre-set`)})`);
+      writeProfileRaw(device, slot, next);
+      console.log(`set profile ${slot} on [${info.index}]: ${assigns.join(", ")}`);
+      printDiff(cur, parseProfile(readProfileRaw(device, slot)));
+    });
   },
 
   restore(opts) {
     const file = opts._[0];
-    if (!file) throw new Error("usage: restore <backup.json> [--device X]");
-    const { device, info } = openController(opts.device ?? 0);
-    try {
-      const bk = autoBackup(device, `dev${info.index}-pre-restore`);
-      console.log(`(auto-backup -> ${bk})`);
-      for (let slot = 1; slot <= PROFILE_COUNT; slot++) {
-        const raw = loadRawFromFile(file, slot);
-        writeProfileRaw(device, slot, raw);
+    if (!file) throw new Error("usage: restore <backup.json> [--device X] [--dry-run]");
+    forEachTarget(opts, true, (device, info) => {
+      if (opts.dryRun) {
+        for (let slot = 1; slot <= PROFILE_COUNT; slot++) { console.log(`[dry-run] [${info.index}] profile ${slot}:`); printDiff(parseProfile(readProfileRaw(device, slot)), parseProfile(loadRawFromFile(file, slot))); }
+        return;
       }
-      console.log(`Restored 3 profiles from ${file} to controller [${info.index}]`);
-    } finally {
-      device.close();
-    }
+      console.log(`(auto-backup -> ${autoBackup(device, `dev${info.index}-pre-restore`)})`);
+      for (let slot = 1; slot <= PROFILE_COUNT; slot++) writeProfileRaw(device, slot, loadRawFromFile(file, slot));
+      console.log(`Restored 3 profiles from ${file} to [${info.index}]`);
+    });
   },
 
-  // Apply a portable profile (web Library export / share code / URL / preset id) onto a slot:
-  // reads the current profile as a base (so uuid + unmodeled fields survive), applies the
-  // mapping, writes it back, and verifies.
+  // Apply a portable profile (web export / share code / URL / preset id) onto a slot.
   apply(opts) {
-    const src = opts._[0];
-    const slot = Number(opts._[1]);
-    if (!src || !(slot >= 1 && slot <= PROFILE_COUNT)) {
-      throw new Error("usage: apply <file.json | share-code | url | preset-id> <1..3>");
-    }
+    const src = opts._[0]; const slot = Number(opts._[1]);
+    if (!src || !(slot >= 1 && slot <= PROFILE_COUNT)) throw new Error("usage: apply <file.json | share-code | url | preset-id> <1..3> [--all] [--dry-run]");
     const portable = resolvePortable(src, slot - 1);
-    const { device, info } = openController(opts.device ?? 0);
-    try {
-      const bk = autoBackup(device, `dev${info.index}-pre-apply`);
-      console.log(`(auto-backup -> ${bk})`);
-      const base = parseProfile(readProfileRaw(device, slot));
-      applyPortable(base, portable);
-      writeProfileRaw(device, slot, buildProfile(base, { now: Date.now() }));
-      const back = parseProfile(readProfileRaw(device, slot));
-      console.log(`Applied ${portable.name ? `"${portable.name}"` : "profile"} to slot ${slot} on controller [${info.index}].`);
-      console.log(describeProfile(back));
-    } finally {
-      device.close();
-    }
+    forEachTarget(opts, true, (device, info) => {
+      const cur = parseProfile(readProfileRaw(device, slot));
+      const next = buildProfile(applyPortable(parseProfile(readProfileRaw(device, slot)), portable), { now: Date.now() });
+      if (opts.dryRun) { console.log(`[dry-run] [${info.index}] profile ${slot}:`); return printDiff(cur, parseProfile(next)); }
+      console.log(`(auto-backup -> ${autoBackup(device, `dev${info.index}-pre-apply`)})`);
+      writeProfileRaw(device, slot, next);
+      console.log(`Applied ${portable.name ? `"${portable.name}"` : "profile"} to slot ${slot} on [${info.index}].`);
+      printDiff(cur, parseProfile(readProfileRaw(device, slot)));
+    });
   },
 
-  // List the built-in starting-point presets (shared with the web Library).
+  // Export a slot as a portable .ps-access.json (the import side is `apply`).
+  export(opts) {
+    const slot = Number(opts._[0]); const file = opts._[1];
+    if (!(slot >= 1 && slot <= PROFILE_COUNT) || !file) throw new Error("usage: export <1..3> <file.json>");
+    forEachTarget(opts, false, (device, info) => {
+      writeFileSync(file, toFileText(toPortable(parseProfile(readProfileRaw(device, slot)))));
+      console.log(`Exported profile ${slot} from [${info.index}] -> ${file}`);
+    });
+  },
+
+  rename(opts) {
+    const slot = Number(opts._[0]); const name = opts._.slice(1).join(" ");
+    if (!(slot >= 1 && slot <= PROFILE_COUNT) || !name) throw new Error('usage: rename <1..3> <name>');
+    forEachTarget(opts, true, (device, info) => {
+      const cur = parseProfile(readProfileRaw(device, slot));
+      const p = parseProfile(readProfileRaw(device, slot)); p.name = name.slice(0, 40);
+      const next = buildProfile(p, { now: Date.now() });
+      if (opts.dryRun) { console.log(`[dry-run] [${info.index}] profile ${slot}:`); return printDiff(cur, parseProfile(next)); }
+      console.log(`(auto-backup -> ${autoBackup(device, `dev${info.index}-pre-rename`)})`);
+      writeProfileRaw(device, slot, next);
+      console.log(`Renamed profile ${slot} on [${info.index}] to "${p.name}"`);
+    });
+  },
+
+  // copy <srcSlot> <dstSlot> [--from <id> --to <id>] — within a controller, or across two.
+  copy(opts) {
+    const src = Number(opts._[0]); const dst = Number(opts._[1]);
+    if (!(src >= 1 && src <= PROFILE_COUNT) || !(dst >= 1 && dst <= PROFILE_COUNT)) {
+      throw new Error("usage: copy <srcSlot 1..3> <dstSlot 1..3> [--from <id> --to <id>]");
+    }
+    if (opts.from || opts.to) {
+      const a = openController(opts.from ?? opts.device ?? 0);
+      let raw; try { raw = readProfileRaw(a.device, src); } finally { a.device.close(); }
+      const b = openController(opts.to ?? opts.device ?? 0);
+      try {
+        if (opts.dryRun) { console.log(`[dry-run] copy [${a.info.index}] profile ${src} -> [${b.info.index}] profile ${dst}:`); return printDiff(parseProfile(readProfileRaw(b.device, dst)), parseProfile(raw)); }
+        console.log(`(auto-backup -> ${autoBackup(b.device, `dev${b.info.index}-pre-copy`)})`);
+        writeProfileRaw(b.device, dst, raw);
+        console.log(`Copied [${a.info.index}] profile ${src} -> [${b.info.index}] profile ${dst}`);
+      } finally { b.device.close(); }
+      return;
+    }
+    forEachTarget(opts, true, (device, info) => {
+      const raw = readProfileRaw(device, src);
+      if (opts.dryRun) { console.log(`[dry-run] [${info.index}] profile ${src} -> ${dst}:`); return printDiff(parseProfile(readProfileRaw(device, dst)), parseProfile(raw)); }
+      console.log(`(auto-backup -> ${autoBackup(device, `dev${info.index}-pre-copy`)})`);
+      writeProfileRaw(device, dst, raw);
+      console.log(`Copied profile ${src} -> ${dst} on [${info.index}]`);
+    });
+  },
+
+  // Compare two profiles. Each operand is a slot (1..3, from the device) or a file/share/preset.
+  async diff(opts) {
+    const [aSpec, bSpec] = opts._;
+    if (!aSpec || !bSpec) throw new Error("usage: diff <a> <b>   (each: a slot 1..3, or a file / share-code / preset-id)");
+    const needDevice = [aSpec, bSpec].some((s) => /^[1-3]$/.test(s));
+    let device;
+    if (needDevice) { await loadHid(); ({ device } = openController(resolveTargets(opts, { write: false })[0])); }
+    try {
+      const load = (s) => /^[1-3]$/.test(s) ? parseProfile(readProfileRaw(device, Number(s))) : resolvePortable(s, 0);
+      printDiff(load(aSpec), load(bSpec));
+    } finally { device?.close(); }
+  },
+
+  // Terminal live input view — the CLI parallel to the Monitor blade.
+  async monitor(opts) {
+    const { decodeInput } = await import("./web/bridge-core.mjs");
+    if (!process.stdout.isTTY) throw new Error("monitor needs an interactive terminal.");
+    const devs = resolveTargets(opts, { write: false }).map((sel) => openController(sel));
+    const states = new Map();
+    let lines = 0;
+    const redraw = () => {
+      if (lines) process.stdout.write(`\x1b[${lines}A`);
+      const rows = devs.map(({ info }) => {
+        const s = states.get(info.index) || { buttons: [], axes: [0, 0] };
+        return `[${info.index}] ${info.product.padEnd(20)} btns: ${(s.buttons.join(",") || "-").padEnd(20)} stick: ${s.axes[0].toFixed(2)},${s.axes[1].toFixed(2)}\x1b[K`;
+      });
+      lines = rows.length;
+      process.stdout.write(rows.join("\n") + "\n");
+    };
+    console.log(`Live monitor — ${devs.length} controller(s). Ctrl-C to exit.\n`);
+    for (const { device, info } of devs) {
+      device.on("data", (buf) => {
+        const d = buf[0] === 0x01 ? buf.subarray(1) : buf;
+        const { buttons, axes } = decodeInput(d);
+        states.set(info.index, { buttons: [...buttons].sort((x, y) => x - y), axes });
+        redraw();
+      });
+    }
+    await new Promise((resolve) => {
+      const quit = () => { for (const { device } of devs) { try { device.close(); } catch { /* ignore */ } } process.stdout.write("\n"); resolve(); };
+      process.on("SIGINT", quit);
+    });
+  },
+
   presets() {
     console.log("Presets — apply as a starting point, then customize:");
     for (const p of PRESETS) console.log(`  ${p.id.padEnd(18)} ${p.name}\n    ${p.description}`);
-    console.log(`\nUse one with:  share / show-share, or apply it in the web Library, then Save.`);
+    console.log(`\nApply one:  ps-access apply <preset-id> <slot>`);
   },
 
-  // Print a shareable link (and #p= code) for a profile in a backup file — works offline.
   share(opts) {
     const file = opts._[0];
     if (!file) throw new Error("usage: share <backup.json> [slot 1..3]");
     const slot = opts._[1] ? Number(opts._[1]) - 1 : 0;
-    const portable = fromFileText(readFileSync(file, "utf8"), slot);
-    console.log(shareURL(portable, "https://ps-access.johnhenry.me/"));
+    console.log(shareURL(fromFileText(readFileSync(file, "utf8"), slot), "https://ps-access.johnhenry.me/"));
   },
 
-  // Decode a share link/code and describe what it contains — works offline.
   "show-share"(opts) {
     const arg = opts._[0];
     if (!arg) throw new Error("usage: show-share <code|url>");
-    const code = arg.includes("#p=") ? arg.split("#p=")[1] : arg;
-    const portable = decodeShare(code);
+    const portable = decodeShare(arg.includes("#p=") ? arg.split("#p=")[1] : arg);
     console.log(describeProfile({ uuid: "(shared profile)", buttons: portable.buttons, ports: portable.ports, name: portable.name }));
   },
 
   help() {
     console.log(`ps-access — PlayStation Access Controller tool (USB-C, no PS5)
 
-Usage: ps-access <command> [args] [--device <serial|index|path>]
+Usage: ps-access <command> [args] [--device <serial|index|path>] [--all]
        (no install: npx ps-access <command> …)
 
-Commands:
-  list                          List connected controllers
-  dump                          Read + decode all 3 profiles
+Per-controller (use --device <serial> to target one; --all for every connected controller;
+multiple connected + a write + no --device = refused):
+  list [--json]                 List connected controllers
+  dump [--all --json]           Read + decode all 3 profiles
   read-profile <1..3> [--json]  Read + decode one profile
-  set-active <1..3>             Switch the controller's active profile (like its profile button)
-  backup [--out file]           Save all 3 profiles to captures/ (raw + decoded)
-  restore <backup.json>         Write all 3 profiles back from a backup
-  write-profile <1..3> <file>   Write one profile from a backup/hex/binary file
-  apply <src> <1..3>            Apply a web export / share code / URL / preset id to a slot
-  set <1..3> <target>=<action>  Edit one mapping, e.g.:
-                                  set 1 button5=triangle
-                                  set 1 port1=cross
-                                  set 1 "port0=left stick"
-                                  set 1 orientation="stick on the right"
+  set-active <1..3> [--all]     Switch the active profile (like the profile button)
+  backup [--all --out file]     Save all 3 profiles to captures/ (raw + decoded)
+  restore <backup.json> [--dry-run]   Write all 3 profiles back from a backup
+  write-profile <1..3> <file> [--dry-run]   Write one profile from a backup/hex/binary file
+  set <1..3> <target=value>... [--dry-run]  Edit mappings (one write), e.g.:
+                                  set 1 button5=triangle port1=cross
+                                  set 1 "port0=left stick" orientation="stick on the right"
+  apply <src> <1..3> [--all --dry-run]   Apply a web export / share code / url / preset id
+  export <1..3> <file.json>     Save a slot as a portable profile (the import side is apply)
+  rename <1..3> <name>          Rename a profile
+  copy <src> <dst> [--from id --to id]   Clone a profile between slots / controllers
+  diff <a> <b>                  Compare two profiles (slot 1..3, file, share-code, or preset)
+  monitor [--all]               Live terminal view of physical buttons + stick
+
+Global:
   presets                       List built-in starting-point presets
-  share <backup.json> [slot]    Print a shareable link/code for a backed-up profile (offline)
+  share <backup.json> [slot]    Print a shareable link/code (offline)
   show-share <code|url>         Decode + describe a share link/code (offline)
   bridge [run|edit|set|show]    Use the controller as a PC input device (ps-access bridge --help)
 
-Every write auto-backs-up first (captures/) and round-trip verifies.
+Every write auto-backs-up first (captures/) and round-trip verifies.  Add --dry-run to preview.
 Actions: ${Object.values(ACTIONS).join(", ")}, left stick, right stick`);
   },
 };
 
 // Commands that never touch the controller — usable without node-hid installed.
-const OFFLINE = new Set(["presets", "share", "show-share", "help"]);
+const OFFLINE = new Set(["presets", "share", "show-share", "diff", "help"]);
 
 const rawArgv = process.argv.slice(2);
 try {
   if (rawArgv[0] === "bridge") {
-    // PC input bridge — its own subcommands/flags (run/edit/set/show). Delegated verbatim.
     const { runBridge } = await import("./bridge.mjs");
     await runBridge(rawArgv.slice(1));
   } else {
