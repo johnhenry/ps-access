@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ps-access — PlayStation Access Controller tool over USB-C (no PS5). Profiles + PC input bridge.
 import { writeFileSync, readFileSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve, extname } from "node:path";
 import {
   parseProfile, buildProfile, describeProfile, PROFILE_SIZE, PROFILE_COUNT,
   ACTION_BY_NAME, ACTIONS, STICKS, STICK_BY_NAME, ORIENTATIONS, ORIENTATION_BY_NAME,
@@ -46,6 +46,7 @@ function parseArgs(argv) {
     const a = argv[i];
     if (a === "--device" || a === "-d") opts.device = argv[++i];
     else if (a === "--out" || a === "-o") opts.out = argv[++i];
+    else if (a === "--port" || a === "-p") opts.port = argv[++i];
     else if (a === "--from") opts.from = argv[++i];
     else if (a === "--to") opts.to = argv[++i];
     else if (a === "--all") opts.all = true;
@@ -399,6 +400,42 @@ const COMMANDS = {
     });
   },
 
+  // Serve the bundled web configurator locally. http://localhost is a valid WebHID secure
+  // context, so no HTTPS needed. No dependency — a tiny built-in static file server.
+  async serve(opts) {
+    const { createServer } = await import("node:http");
+    const { readFile } = await import("node:fs/promises");
+    const { fileURLToPath } = await import("node:url");
+    const root = resolve(fileURLToPath(new URL("./web/", import.meta.url)));
+    const port = Number(opts.port ?? opts._[0]) || 3000;
+    const sep = process.platform === "win32" ? "\\" : "/";
+    const MIME = {
+      ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
+      ".mjs": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",
+      ".json": "application/json; charset=utf-8", ".webmanifest": "application/manifest+json",
+      ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".txt": "text/plain; charset=utf-8",
+    };
+    const server = createServer(async (req, res) => {
+      try {
+        let p = decodeURIComponent((req.url || "/").split("?")[0]);
+        if (p.endsWith("/")) p += "index.html";
+        const filePath = resolve(join(root, p));
+        if (filePath !== root && !filePath.startsWith(root + sep)) { res.writeHead(403); return res.end("forbidden"); }
+        const body = await readFile(filePath);
+        res.writeHead(200, { "content-type": MIME[extname(filePath).toLowerCase()] || "application/octet-stream", "cache-control": "no-cache" });
+        res.end(body);
+      } catch { res.writeHead(404); res.end("not found"); }
+    });
+    await new Promise((done, reject) => {
+      server.on("error", (e) => reject(e.code === "EADDRINUSE" ? new Error(`port ${port} is in use — try: ps-access serve <port>`) : e));
+      server.listen(port, () => {
+        console.log(`ps-access — web configurator at  http://localhost:${port}/`);
+        console.log("Open it in Chrome or Edge (WebHID). Press Ctrl-C to stop.");
+      });
+      process.on("SIGINT", () => { server.close(); process.stdout.write("\n"); done(); });
+    });
+  },
+
   presets() {
     console.log("Presets — apply as a starting point, then customize:");
     for (const p of PRESETS) console.log(`  ${p.id.padEnd(18)} ${p.name}\n    ${p.description}`);
@@ -449,6 +486,7 @@ Global:
   share <backup.json> [slot]    Print a shareable link/code (offline)
   show-share <code|url>         Decode + describe a share link/code (offline)
   bridge [run|edit|set|show]    Use the controller as a PC input device (ps-access bridge --help)
+  serve [port]                  Serve the web configurator locally (http://localhost:3000)
 
 Every write auto-backs-up first (captures/) and round-trip verifies.  Add --dry-run to preview.
 Actions: ${Object.values(ACTIONS).join(", ")}, left stick, right stick`);
@@ -456,7 +494,7 @@ Actions: ${Object.values(ACTIONS).join(", ")}, left stick, right stick`);
 };
 
 // Commands that never touch the controller — usable without node-hid installed.
-const OFFLINE = new Set(["presets", "share", "show-share", "diff", "help"]);
+const OFFLINE = new Set(["presets", "share", "show-share", "diff", "serve", "help"]);
 
 const rawArgv = process.argv.slice(2);
 try {

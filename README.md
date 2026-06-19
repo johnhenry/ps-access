@@ -59,11 +59,14 @@ unmodeled fields survive, then round-trip verifying).
 
 ## Web tool (multiple controllers)
 
+Run it locally with the CLI — no install or separate web server needed:
+
 ```bash
-npm start            # serves the project at http://localhost:3000
+npx ps-access serve          # or, after install:  ps-access serve   (optional: serve <port>)
 ```
 
-Open **<http://localhost:3000/web/>** in Chrome/Edge.
+Open **<http://localhost:3000/>** in Chrome/Edge. (`http://localhost` is a valid WebHID
+secure context, so no HTTPS is required.) It's also hosted at <https://ps-access.johnhenry.me>.
 
 ### XMB view (`index.html`)
 
