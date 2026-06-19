@@ -25,21 +25,21 @@ yourself.
 
 ## CLI
 
-```bash
-npm install
+Install with `npm i -g ps-access`, or run any command without installing via `npx ps-access …`.
 
-node cli.mjs list                       # list connected controllers
-node cli.mjs dump                        # decode all 3 profiles
-node cli.mjs backup                      # save all 3 profiles to captures/
-node cli.mjs read-profile 1 --json       # decode one profile as JSON
-node cli.mjs set-active 2                 # switch the active profile (like the profile button)
-node cli.mjs set 1 button5=triangle      # remap button 5
-node cli.mjs set 1 port1=cross           # expansion port 1 -> cross
-node cli.mjs set 1 "port0=left stick"    # built-in stick assignment
-node cli.mjs set 1 orientation="stick on the right"
-node cli.mjs write-profile 2 captures/backup-....json
-node cli.mjs restore captures/backup-....json
-node cli.mjs apply profile.json 1        # apply a web-app export / share code / URL / preset id to a slot
+```bash
+ps-access list                       # list connected controllers
+ps-access dump                        # decode all 3 profiles
+ps-access backup                      # save all 3 profiles to captures/
+ps-access read-profile 1 --json       # decode one profile as JSON
+ps-access set-active 2                 # switch the active profile (like the profile button)
+ps-access set 1 button5=triangle      # remap button 5
+ps-access set 1 port1=cross           # expansion port 1 -> cross
+ps-access set 1 "port0=left stick"    # built-in stick assignment
+ps-access set 1 orientation="stick on the right"
+ps-access write-profile 2 captures/backup-....json
+ps-access restore captures/backup-....json
+ps-access apply profile.json 1        # apply a web-app export / share code / URL / preset id to a slot
 ```
 
 `apply` is the bridge between the web tool and the CLI: feed it a **profile JSON exported from the
@@ -47,7 +47,8 @@ web Library**, a **share link/code**, or a built-in **preset id** (`ps-access pr
 writes that mapping to a slot on the controller (reading the current profile first so uuid and
 unmodeled fields survive, then round-trip verifying).
 
-- `--device <index|path>` targets a specific controller when several are connected.
+- `--device <serial|index|path>` targets a specific controller when several are connected
+  (serial is the stable id — see `ps-access list`).
 - **Every write auto-backs-up first** to `captures/` and round-trip re-reads to verify.
 
 ## Web tool (multiple controllers)
@@ -76,7 +77,7 @@ or chord** to each physical button and the stick by selecting a row, pressing En
 the key you want (press the physical button to find its row — it lights up live). Pick a stick
 mode (keys / mouse / gamepad axis), then **Export** a `bridge.json` or **copy the run command**.
 The browser can author and preview the mapping, but it can't inject input into other apps — you
-run the exported config with the local bridge (`node bridge.mjs --config bridge.json`), which is
+run the exported config with the local bridge (`ps-access bridge --config bridge.json`), which is
 what actually drives the PC. (Macros — multi-step sequences — are edited in the exported JSON.)
 
 **Accessibility:** the configurator is built to be used by the same people the controller is for.
@@ -127,11 +128,11 @@ not just a PS5. The bridge reads the controller's live USB input and maps it thr
 platform-agnostic engine (`web/bridge-core.mjs`) to a pluggable output **sink**.
 
 ```bash
-node bridge.mjs --sink dry-run               # print mapped events, inject nothing (try it first)
-node bridge.mjs --sink xdotool               # stick -> arrow keys, buttons -> keys (X11; needs xdotool)
-node bridge.mjs --sink uinput                # virtual gamepad/keyboard via /dev/uinput (Linux)
-node bridge.mjs --config my-map.json         # custom mapping (see DEFAULT_MAPPING in bridge-core)
-node bridge.mjs --simulate frames.json --sink dry-run   # replay recorded frames, no hardware
+ps-access bridge --sink dry-run               # print mapped events, inject nothing (try it first)
+ps-access bridge --sink xdotool               # stick -> arrow keys, buttons -> keys (X11; needs xdotool)
+ps-access bridge --sink uinput                # virtual gamepad/keyboard via /dev/uinput (Linux)
+ps-access bridge --config my-map.json         # custom mapping (see DEFAULT_MAPPING in bridge-core)
+ps-access bridge --simulate frames.json --sink dry-run   # replay recorded frames, no hardware
 ```
 
 - **xdotool** sink (X11): no native deps; set `--display :0` if `$DISPLAY` isn't set.
@@ -165,10 +166,10 @@ node bridge.mjs --simulate frames.json --sink dry-run   # replay recorded frames
 Author the config visually in the web **Key Bridge** blade, or from the terminal:
 
 ```bash
-node bridge.mjs edit                         # interactive press-to-bind editor (TTY)
-node bridge.mjs edit --config my-map.json --out my-map.json
-node bridge.mjs set 0=ctrl+s 8=space 2=ctrl+c,ctrl+v stick.mode=mouse --out my-map.json
-node bridge.mjs show --config my-map.json    # print the resolved config
+ps-access bridge edit                         # interactive press-to-bind editor (TTY)
+ps-access bridge edit --config my-map.json --out my-map.json
+ps-access bridge set 0=ctrl+s 8=space 2=ctrl+c,ctrl+v stick.mode=mouse --out my-map.json
+ps-access bridge show --config my-map.json    # print the resolved config
 ```
 
 - **edit** is the CLI twin of the web editor: ↑/↓ to select a button/stick row, **Enter** to
@@ -187,8 +188,8 @@ lib/hid-node.mjs          node-hid transport (Node CLI only)
 web/bridge-core.mjs       PC bridge: pure input->output mapping engine
 lib/bridge-sinks.mjs      PC bridge: output sinks (dry-run, xdotool, uinput)
 lib/uinput-helper.py      PC bridge: stdlib-only virtual device for the uinput sink
-cli.mjs                   command-line tool (profiles)
-bridge.mjs                command-line PC input bridge
+cli.mjs                   the `ps-access` command (profiles; dispatches `bridge` subcommand)
+bridge.mjs                PC input bridge — module run via `ps-access bridge`
 web/index.html + xmb.js   XMB-style configurator (the web UI) + Library + live Monitor, via hid-web.mjs
 web/controller-render.mjs shared controller SVG render + physical-input decode
 web/monitor.html + monitor.js  standalone XMB-styled live input monitor

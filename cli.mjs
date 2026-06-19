@@ -309,9 +309,10 @@ const COMMANDS = {
   },
 
   help() {
-    console.log(`ps-access — PlayStation Access Controller profile tool (USB-C, no PS5)
+    console.log(`ps-access — PlayStation Access Controller tool (USB-C, no PS5)
 
-Usage: node cli.mjs <command> [args] [--device <index|path>]
+Usage: ps-access <command> [args] [--device <serial|index|path>]
+       (no install: npx ps-access <command> …)
 
 Commands:
   list                          List connected controllers
@@ -330,6 +331,7 @@ Commands:
   presets                       List built-in starting-point presets
   share <backup.json> [slot]    Print a shareable link/code for a backed-up profile (offline)
   show-share <code|url>         Decode + describe a share link/code (offline)
+  bridge [run|edit|set|show]    Use the controller as a PC input device (ps-access bridge --help)
 
 Every write auto-backs-up first (captures/) and round-trip verifies.
 Actions: ${Object.values(ACTIONS).join(", ")}, left stick, right stick`);
@@ -339,12 +341,19 @@ Actions: ${Object.values(ACTIONS).join(", ")}, left stick, right stick`);
 // Commands that never touch the controller — usable without node-hid installed.
 const OFFLINE = new Set(["presets", "share", "show-share", "help"]);
 
-const opts = parseArgs(process.argv.slice(2));
-const cmd = opts._.shift() || "help";
-const fn = COMMANDS[cmd] || COMMANDS.help;
+const rawArgv = process.argv.slice(2);
 try {
-  if (!OFFLINE.has(cmd) && COMMANDS[cmd]) await loadHid();
-  await fn(opts);
+  if (rawArgv[0] === "bridge") {
+    // PC input bridge — its own subcommands/flags (run/edit/set/show). Delegated verbatim.
+    const { runBridge } = await import("./bridge.mjs");
+    await runBridge(rawArgv.slice(1));
+  } else {
+    const opts = parseArgs(rawArgv);
+    const cmd = opts._.shift() || "help";
+    const fn = COMMANDS[cmd] || COMMANDS.help;
+    if (!OFFLINE.has(cmd) && COMMANDS[cmd]) await loadHid();
+    await fn(opts);
+  }
 } catch (e) {
   console.error("error:", e.message);
   process.exit(1);

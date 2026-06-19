@@ -98,5 +98,5 @@ export function toConfigJSON(map) {
 
 // A ready-to-run command for the exported config, using the published CLI.
 export function runCommand(filename = "ps-access-bridge.json", sink = "xdotool") {
-  return `npx ps-access-bridge --config ${filename} --sink ${sink}`;
+  return `npx ps-access bridge --config ${filename} --sink ${sink}`;
 }

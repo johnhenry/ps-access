@@ -4,14 +4,15 @@
 // Reads the controller's live input over USB and maps it to keyboard/mouse (xdotool)
 // or a virtual gamepad (uinput) so it can drive ANY PC software, not just a PS5.
 //
-//   node bridge.mjs --sink xdotool                 # stick -> arrows, buttons -> keys (X11)
-//   node bridge.mjs --sink uinput                  # virtual gamepad (needs /dev/uinput)
-//   node bridge.mjs --sink dry-run                 # print events, inject nothing
-//   node bridge.mjs --config my-map.json           # custom mapping
-//   node bridge.mjs --simulate frames.json --sink dry-run   # replay (no hardware)
+//   ps-access bridge --sink xdotool                 # stick -> arrows, buttons -> keys (X11)
+//   ps-access bridge --sink uinput                  # virtual gamepad (needs /dev/uinput)
+//   ps-access bridge --sink dry-run                 # print events, inject nothing
+//   ps-access bridge --config my-map.json           # custom mapping
+//   ps-access bridge --simulate frames.json --sink dry-run   # replay (no hardware)
 //
 import { readFileSync, writeFileSync } from "node:fs";
 import readline from "node:readline";
+import { pathToFileURL } from "node:url";
 import { BridgeEngine, decodeInput, DEFAULT_MAPPING } from "./web/bridge-core.mjs";
 import {
   PHYS_LABELS, STICK_MODES, STICK_DIRS, defaultBridgeMap, displayValue, toConfigJSON, keypressToValue,
@@ -47,13 +48,13 @@ function loadMapping(file) {
 const HELP = `ps-access bridge — drive a PC with the Access Controller (USB-C)
 
 Usage:
-  node bridge.mjs [--sink <name>] [options]     run the bridge (live or --simulate)
-  node bridge.mjs edit [--config f] [--out f]   interactive press-to-bind key editor
-  node bridge.mjs set <target=value>... [--out f]   set mappings non-interactively
-  node bridge.mjs show [--config f]             print the resolved config JSON
+  ps-access bridge [--sink <name>] [options]      run the bridge (live or --simulate)
+  ps-access bridge edit [--config f] [--out f]    interactive press-to-bind key editor
+  ps-access bridge set <target=value>... [--out f]   set mappings non-interactively
+  ps-access bridge show [--config f]              print the resolved config JSON
 
 edit/set targets: 0..9 (buttons), stick.mode, stick.up/down/left/right, mouse.speed
-  e.g.  node bridge.mjs set 0=ctrl+s 8=space 2=ctrl+c,ctrl+v stick.mode=mouse --out my-map.json
+  e.g.  ps-access bridge set 0=ctrl+s 8=space 2=ctrl+c,ctrl+v stick.mode=mouse --out my-map.json
 
 Sinks:
   dry-run        Print events only (default; no OS input)
@@ -216,8 +217,8 @@ function editConfig(opts) {
   });
 }
 
-async function main() {
-  const opts = parseArgs(process.argv.slice(2));
+export async function runBridge(argv) {
+  const opts = parseArgs(argv);
   if (opts.help) { console.log(HELP); return; }
   const sub = opts._[0];
   try {
@@ -238,4 +239,8 @@ async function main() {
     process.exit(1);
   }
 }
-main();
+
+// Allow `node bridge.mjs …` directly (dev), while also being importable as `ps-access bridge`.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  runBridge(process.argv.slice(2));
+}
