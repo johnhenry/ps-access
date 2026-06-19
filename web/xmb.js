@@ -418,9 +418,10 @@ function renderItems() {
 function renderHero() {
   const hero = $("#hero");
   const profile = cellProfile();
-  if (!nav.drill || !profile) { hero.style.opacity = "0"; hero.innerHTML = ""; return; }
-  const rows = drillRows(profile, nav.drill.key);
-  const focus = rows[nav.drill.index]?.focus || null;
+  // Keep the controller render on screen for the whole profile drill-in (menu + value spinners),
+  // not just the value level — it's visible on the blade before and the spinners after.
+  if (!(nav.inCell || nav.drill) || !profile) { hero.style.opacity = "0"; hero.innerHTML = ""; return; }
+  const focus = nav.drill ? (drillRows(profile, nav.drill.key)[nav.drill.index]?.focus || null) : null;
   hero.innerHTML = profileSVG(profile, { focus });
   hero.style.opacity = ".97";
 }
